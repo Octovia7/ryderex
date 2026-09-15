@@ -1,2 +1,7 @@
 dist
 node_modules
+
+# Reference documentation mirrored from an external source repo — must stay
+# byte-for-byte as fetched (aside from deliberate project-name edits), never
+# reformatted by our tooling.
+docs/

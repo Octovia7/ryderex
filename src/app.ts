@@ -16,7 +16,7 @@ export function createApp(): Application {
   app.get('/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
-      service: 'rydex-api',
+      service: 'saathiride-api',
       environment: config.nodeEnv,
       timestamp: new Date().toISOString(),
     });

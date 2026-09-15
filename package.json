@@ -1,7 +1,7 @@
 {
-  "name": "rydex",
+  "name": "saathiride",
   "version": "0.1.0",
-  "description": "Rydex - India-focused carpooling backend (modular monolith)",
+  "description": "SaathiRide - India-focused carpooling backend (modular monolith)",
   "private": true,
   "license": "UNLICENSED",
   "engines": {
