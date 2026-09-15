@@ -1,0 +1,174 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [postgis]
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("user_status")
+}
+
+enum VehicleType {
+  HATCHBACK
+  SEDAN
+  MUV
+  SUV
+
+  @@map("vehicle_type")
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("vehicle_status")
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("verification_status")
+}
+
+enum UserDocumentType {
+  DRIVER_LICENSE
+
+  @@map("user_document_type")
+}
+
+enum VehicleDocumentType {
+  RC
+  INSURANCE
+  POLLUTION
+
+  @@map("vehicle_document_type")
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id    String @id @default(uuid()) @db.Uuid
+  email String @unique
+  phone String @unique
+  name  String
+
+  profileImageUrl String? @map("profile_image_url")
+
+  role   UserRole   @default(PASSENGER)
+  status UserStatus @default(ACTIVE)
+
+  // Reputation is role-scoped: a nullable average means "unrated", never "bad".
+  // The driver figure is what the fare multiplier and search sort read; the
+  // passenger figure is never blended into it.
+  driverRatingAverage    Decimal? @map("driver_rating_average") @db.Decimal(3, 2)
+  driverRatingCount      Int      @default(0) @map("driver_rating_count")
+  passengerRatingAverage Decimal? @map("passenger_rating_average") @db.Decimal(3, 2)
+  passengerRatingCount   Int      @default(0) @map("passenger_rating_count")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  refreshTokens    RefreshToken[]
+  documents        UserDocument[]
+  vehicles         Vehicle[]      @relation("VehicleOwner")
+  verifiedVehicles Vehicle[]      @relation("VehicleVerifier")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  deviceId  String?   @map("device_id")
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model UserDocument {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @map("user_id") @db.Uuid
+  documentType       UserDocumentType @map("document_type")
+  cloudinaryPublicId String           @map("cloudinary_public_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_documents")
+}
+
+model Vehicle {
+  id                 String      @id @default(uuid()) @db.Uuid
+  ownerId            String      @map("owner_id") @db.Uuid
+  registrationNumber String      @unique @map("registration_number")
+  vehicleType        VehicleType @map("vehicle_type")
+  seatCapacity       Int         @map("seat_capacity")
+
+  // Two independent lifecycles, deliberately not one status column:
+  // `status` is the vehicle's own operational state, `verificationStatus`
+  // is the admin trust decision. Ride-creation eligibility reads both.
+  status             VehicleStatus      @default(ACTIVE)
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verifiedBy         String?            @map("verified_by") @db.Uuid
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)
+  rejectionReason    String?            @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner    User  @relation("VehicleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  verifier User? @relation("VehicleVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  documents VehicleDocument[]
+
+  @@index([ownerId])
+  @@map("vehicles")
+}
+
+model VehicleDocument {
+  id                 String              @id @default(uuid()) @db.Uuid
+  vehicleId          String              @map("vehicle_id") @db.Uuid
+  documentType       VehicleDocumentType @map("document_type")
+  cloudinaryPublicId String              @map("cloudinary_public_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@map("vehicle_documents")
+}

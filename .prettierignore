@@ -1,5 +1,6 @@
 dist
 node_modules
+src/generated
 
 # Reference documentation mirrored from an external source repo — must stay
 # byte-for-byte as fetched (aside from deliberate project-name edits), never

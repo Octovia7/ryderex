@@ -15,8 +15,9 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
 
-  // Populated in later phases. Kept optional so Phase 0 can start without them.
-  DATABASE_URL: z.string().optional(),
+  // The database phase requires a connection string; Redis and JWT secrets
+  // are still populated in later phases, so they stay optional for now.
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().optional(),
   JWT_ACCESS_SECRET: z.string().optional(),
 });
