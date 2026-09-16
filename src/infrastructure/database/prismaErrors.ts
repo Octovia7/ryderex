@@ -13,16 +13,21 @@ function asStringArray(value: unknown): string[] | null {
   return null;
 }
 
-// Prisma's default unique-index naming: `<table>_<column>_key`. Used only to
-// recover the column from an index name — never applied to anything outside
-// this driver-adapter error shape.
+function snakeToCamel(value: string): string {
+  return value.replace(/_([a-z0-9])/g, (_match, char: string) => char.toUpperCase());
+}
+
+// Prisma's default unique-index naming: `<table>_<column>_key`, where table
+// and column are the physical (snake_case, via @map) names. Returned as the
+// camelCase Prisma field name, so callers can compare against schema field
+// names (e.g. "registrationNumber") regardless of which error shape fired.
 function fieldFromIndexName(index: string, table: string): string | null {
   const prefix = `${table}_`;
   const suffix = '_key';
   if (!index.startsWith(prefix) || !index.endsWith(suffix)) {
     return null;
   }
-  return index.slice(prefix.length, index.length - suffix.length);
+  return snakeToCamel(index.slice(prefix.length, index.length - suffix.length));
 }
 
 /**
