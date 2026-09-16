@@ -4,10 +4,16 @@ import helmet from 'helmet';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import { requestId } from './middleware/requestId';
+import authRoutes from './modules/auth/routes';
 
 export function createApp(): Application {
   const app = express();
 
+  // A hop count, never `true` — see config/env.ts's TRUST_PROXY comment.
+  app.set('trust proxy', config.trustProxy ? 1 : false);
+
+  app.use(requestId);
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json({ limit: '1mb' }));
@@ -21,6 +27,8 @@ export function createApp(): Application {
       timestamp: new Date().toISOString(),
     });
   });
+
+  app.use('/api/v1/auth', authRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -13,12 +13,30 @@ function asStringArray(value: unknown): string[] | null {
   return null;
 }
 
+// Prisma's default unique-index naming: `<table>_<column>_key`. Used only to
+// recover the column from an index name — never applied to anything outside
+// this driver-adapter error shape.
+function fieldFromIndexName(index: string, table: string): string | null {
+  const prefix = `${table}_`;
+  const suffix = '_key';
+  if (!index.startsWith(prefix) || !index.endsWith(suffix)) {
+    return null;
+  }
+  return index.slice(prefix.length, index.length - suffix.length);
+}
+
 /**
  * Extracts the violated column(s) from a Prisma P2002 unique-constraint
- * error, returning null for anything else. Prisma 7's pg driver adapter
- * reports them at `meta.driverAdapterError.cause.constraint.fields` rather
- * than the older `meta.target` shape, so both are checked — otherwise a
- * duplicate key falls through as a raw 500 instead of a meaningful 409.
+ * error, returning null for anything else.
+ *
+ * The canonical docs describe Prisma 7's pg driver adapter reporting fields
+ * at `meta.driverAdapterError.cause.constraint.fields` (an array), but the
+ * installed 7.10.0 release instead reports `constraint.index` (an index
+ * name string, e.g. "users_phone_key") alongside `cause.table` — verified
+ * directly against a real duplicate-key error, not assumed from the docs.
+ * All three shapes (this one, the documented one, and the pre-driver-adapter
+ * `meta.target` array) are checked, so a duplicate key never falls through
+ * as a raw 500 instead of a meaningful 409.
  */
 export function getUniqueConstraintFields(error: unknown): string[] | null {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
@@ -42,7 +60,20 @@ export function getUniqueConstraintFields(error: unknown): string[] | null {
   const driverAdapterError = meta.driverAdapterError;
   const cause = isRecord(driverAdapterError) ? driverAdapterError.cause : undefined;
   const constraint = isRecord(cause) ? cause.constraint : undefined;
-  const fields = isRecord(constraint) ? constraint.fields : undefined;
 
-  return asStringArray(fields);
+  const fields = isRecord(constraint) ? asStringArray(constraint.fields) : null;
+  if (fields) {
+    return fields;
+  }
+
+  const index =
+    isRecord(constraint) && typeof constraint.index === 'string' ? constraint.index : null;
+  const table = isRecord(cause) && typeof cause.table === 'string' ? cause.table : null;
+
+  if (index && table) {
+    const field = fieldFromIndexName(index, table);
+    return field ? [field] : null;
+  }
+
+  return null;
 }
