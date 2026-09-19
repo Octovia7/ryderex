@@ -3,6 +3,7 @@ import { sendSuccess } from '../../../shared/sendSuccess';
 import * as vehicleService from '../services/vehicleService';
 import type { CreateVehicleInput } from '../schemas/createVehicle.schema';
 import type { UpdateVehicleInput } from '../schemas/updateVehicle.schema';
+import type { UploadVehicleDocumentInput } from '../schemas/uploadVehicleDocument.schema';
 import type { VehicleIdParams } from '../schemas/vehicleIdParams.schema';
 
 export async function createVehicle(req: Request, res: Response): Promise<void> {
@@ -27,4 +28,14 @@ export async function updateVehicle(req: Request, res: Response): Promise<void> 
   const input = req.body as UpdateVehicleInput;
   const vehicle = await vehicleService.updateOwnVehicle(req.user!.id, id, input);
   sendSuccess(res, vehicle);
+}
+
+export async function uploadVehicleDocument(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as unknown as VehicleIdParams;
+  const { documentType } = req.body as UploadVehicleDocumentInput;
+  const file = req.file as Express.Multer.File;
+  const document = await vehicleService.uploadVehicleDocument(req.user!.id, id, documentType, {
+    buffer: file.buffer,
+  });
+  sendSuccess(res, document, 201);
 }

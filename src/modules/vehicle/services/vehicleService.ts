@@ -1,8 +1,46 @@
+import type { VehicleDocumentType } from '../../../generated/prisma/enums';
+import { documentProvider } from '../../../infrastructure/cloudinary';
 import { getUniqueConstraintFields } from '../../../infrastructure/database/prismaErrors';
 import { AppError } from '../../../shared/AppError';
 import type { CreateVehicleInput } from '../schemas/createVehicle.schema';
 import type { UpdateVehicleInput } from '../schemas/updateVehicle.schema';
+import * as vehicleDocumentRepository from '../repositories/vehicleDocumentRepository';
 import * as vehicleRepository from '../repositories/vehicleRepository';
+
+interface RepositoryDocument {
+  id: string;
+  documentType: string;
+  cloudinaryPublicId: string;
+  createdAt: Date;
+}
+
+interface RepositoryVehicle {
+  documents: RepositoryDocument[];
+}
+
+export interface VehicleDocumentDto {
+  id: string;
+  documentType: string;
+  url: string;
+  createdAt: Date;
+}
+
+// The stored Cloudinary reference is internal. Every read mints a fresh signed
+// URL from it — no permanently-usable link is ever stored or returned.
+export function toDocumentDto(document: RepositoryDocument): VehicleDocumentDto {
+  return {
+    id: document.id,
+    documentType: document.documentType,
+    url: documentProvider.getSignedUrl(document.cloudinaryPublicId),
+    createdAt: document.createdAt,
+  };
+}
+
+export function toVehicleDto<T extends RepositoryVehicle>(
+  vehicle: T,
+): Omit<T, 'documents'> & { documents: VehicleDocumentDto[] } {
+  return { ...vehicle, documents: vehicle.documents.map(toDocumentDto) };
+}
 
 function mapUniqueConstraintError(error: unknown): never {
   const fields = getUniqueConstraintFields(error);
@@ -38,23 +76,26 @@ async function getOwnedVehicleOrThrow(ownerId: string, vehicleId: string) {
 
 export async function createVehicle(ownerId: string, input: CreateVehicleInput) {
   try {
-    return await vehicleRepository.create({
+    const vehicle = await vehicleRepository.create({
       ownerId,
       registrationNumber: input.registrationNumber,
       vehicleType: input.vehicleType,
       seatCapacity: input.seatCapacity,
     });
+    return toVehicleDto(vehicle);
   } catch (error) {
     mapUniqueConstraintError(error);
   }
 }
 
-export function listOwnVehicles(ownerId: string) {
-  return vehicleRepository.findManyByOwner(ownerId);
+export async function listOwnVehicles(ownerId: string) {
+  const vehicles = await vehicleRepository.findManyByOwner(ownerId);
+  return vehicles.map(toVehicleDto);
 }
 
-export function getOwnVehicle(ownerId: string, vehicleId: string) {
-  return getOwnedVehicleOrThrow(ownerId, vehicleId);
+export async function getOwnVehicle(ownerId: string, vehicleId: string) {
+  const vehicle = await getOwnedVehicleOrThrow(ownerId, vehicleId);
+  return toVehicleDto(vehicle);
 }
 
 export async function updateOwnVehicle(
@@ -65,8 +106,35 @@ export async function updateOwnVehicle(
   await getOwnedVehicleOrThrow(ownerId, vehicleId);
 
   try {
-    return await vehicleRepository.updateById(vehicleId, input);
+    const vehicle = await vehicleRepository.updateById(vehicleId, input);
+    return toVehicleDto(vehicle);
   } catch (error) {
     mapUniqueConstraintError(error);
   }
+}
+
+// Ownership is checked first, so a non-owner never triggers an upload. The
+// external upload then happens before — and never inside — the database write;
+// if the upload throws, no document row is created. A failed insert after a
+// successful upload would leave an orphaned Cloudinary asset, the same accepted
+// trade-off documented for driver applications (no compensating delete exists
+// on the two-method DocumentProvider).
+export async function uploadVehicleDocument(
+  ownerId: string,
+  vehicleId: string,
+  documentType: VehicleDocumentType,
+  file: { buffer: Buffer },
+): Promise<VehicleDocumentDto> {
+  await getOwnedVehicleOrThrow(ownerId, vehicleId);
+
+  const folder = `vehicles/${vehicleId}/documents`;
+  const { publicId } = await documentProvider.uploadDocument({ buffer: file.buffer, folder });
+
+  const document = await vehicleDocumentRepository.create({
+    vehicleId,
+    documentType,
+    cloudinaryPublicId: publicId,
+  });
+
+  return toDocumentDto(document);
 }

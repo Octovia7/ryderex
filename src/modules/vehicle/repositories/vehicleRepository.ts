@@ -14,6 +14,10 @@ const SELECT = {
   rejectionReason: true,
   createdAt: true,
   updatedAt: true,
+  documents: {
+    select: { id: true, documentType: true, cloudinaryPublicId: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  },
 } as const;
 
 export interface CreateVehicleData {
