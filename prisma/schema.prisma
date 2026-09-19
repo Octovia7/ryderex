@@ -52,6 +52,14 @@ enum VerificationStatus {
   @@map("verification_status")
 }
 
+enum DriverLicenseStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("driver_license_status")
+}
+
 enum UserDocumentType {
   DRIVER_LICENSE
 
@@ -89,13 +97,22 @@ model User {
   passengerRatingAverage Decimal? @map("passenger_rating_average") @db.Decimal(3, 2)
   passengerRatingCount   Int      @default(0) @map("passenger_rating_count")
 
+  // Nullable: null means "never applied". Only an admin approval flips
+  // PASSENGER -> DRIVER; there is no self-serve upgrade.
+  driverLicenseStatus          DriverLicenseStatus? @map("driver_license_status")
+  driverLicenseVerifiedBy      String?              @map("driver_license_verified_by") @db.Uuid
+  driverLicenseVerifiedAt      DateTime?            @map("driver_license_verified_at") @db.Timestamptz(3)
+  driverLicenseRejectionReason String?              @map("driver_license_rejection_reason")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  refreshTokens    RefreshToken[]
-  documents        UserDocument[]
-  vehicles         Vehicle[]      @relation("VehicleOwner")
-  verifiedVehicles Vehicle[]      @relation("VehicleVerifier")
+  refreshTokens              RefreshToken[]
+  documents                  UserDocument[]
+  vehicles                   Vehicle[]      @relation("VehicleOwner")
+  verifiedVehicles           Vehicle[]      @relation("VehicleVerifier")
+  driverLicenseVerifier      User?          @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
+  driverLicenseVerifications User[]         @relation("DriverLicenseVerifier")
 
   @@map("users")
 }

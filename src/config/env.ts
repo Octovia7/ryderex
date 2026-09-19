@@ -36,6 +36,21 @@ const envSchema = z.object({
   // Absent in development: falls back to ConsoleEmailProvider (OTP to stdout).
   BREVO_API_KEY: z.string().optional(),
   BREVO_SENDER_EMAIL: z.string().optional(),
+
+  // No safe fallback exists for document storage. Left optional for local
+  // development without a Cloudinary account; CloudinaryDocumentProvider
+  // throws clearly at call time when unconfigured rather than at boot.
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // Separate from the base credentials above — this is Cloudinary's Auth
+  // Token feature key, needed for genuinely time-boxed signed URLs. Without
+  // it, delivery falls back to a signed-but-not-expiring URL. Requires the
+  // Cloudinary account's own "Strict transformations" / Auth Token security
+  // setting to be enabled — account-side configuration this app cannot set.
+  CLOUDINARY_AUTH_TOKEN_KEY: z.string().optional(),
+  DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 });
 
 function loadEnv() {
@@ -82,6 +97,13 @@ export const config = {
   brevo: {
     apiKey: env.BREVO_API_KEY,
     senderEmail: env.BREVO_SENDER_EMAIL,
+  },
+  cloudinary: {
+    cloudName: env.CLOUDINARY_CLOUD_NAME,
+    apiKey: env.CLOUDINARY_API_KEY,
+    apiSecret: env.CLOUDINARY_API_SECRET,
+    authTokenKey: env.CLOUDINARY_AUTH_TOKEN_KEY,
+    signedUrlTtlSeconds: env.DOCUMENT_SIGNED_URL_TTL_SECONDS,
   },
 } as const;
 

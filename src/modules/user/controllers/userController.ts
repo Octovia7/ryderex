@@ -13,3 +13,9 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
   const user = await userService.updateProfile(req.user!.id, data);
   sendSuccess(res, user);
 }
+
+export async function submitDriverApplication(req: Request, res: Response): Promise<void> {
+  const file = req.file as Express.Multer.File;
+  await userService.submitDriverApplication(req.user!.id, { buffer: file.buffer });
+  sendSuccess(res, { status: 'PENDING' }, 200);
+}
