@@ -2,6 +2,7 @@ import cors from 'cors';
 import express, { type Application } from 'express';
 import helmet from 'helmet';
 import { config } from './config';
+import { checkReadiness } from './infrastructure/health/checkReadiness';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { requestId } from './middleware/requestId';
@@ -25,6 +26,18 @@ export function createApp(): Application {
   app.get('/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
+      service: 'saathiride-api',
+      environment: config.nodeEnv,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Readiness, unlike /health, exercises PostgreSQL and Redis on every call —
+  // 200 only when both answer, otherwise the error handler's 503 envelope.
+  app.get('/ready', async (_req, res) => {
+    await checkReadiness();
+    res.status(200).json({
+      status: 'ready',
       service: 'saathiride-api',
       environment: config.nodeEnv,
       timestamp: new Date().toISOString(),
