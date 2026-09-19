@@ -1,5 +1,5 @@
 import type { DriverLicenseStatus } from '../../../generated/prisma/enums';
-import { documentProvider } from '../../../infrastructure/cloudinary';
+import { documentProvider, toSignedDocumentUrl } from '../../../infrastructure/cloudinary';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import { getUniqueConstraintFields } from '../../../infrastructure/database/prismaErrors';
 import { AppError } from '../../../shared/AppError';
@@ -204,7 +204,7 @@ export async function listDriverApplications(
       driverLicenseRejectionReason: user.driverLicenseRejectionReason,
       submittedAt: user.createdAt,
       document: document
-        ? { id: document.id, url: documentProvider.getSignedUrl(document.cloudinaryPublicId) }
+        ? { id: document.id, url: toSignedDocumentUrl(document.cloudinaryPublicId) }
         : null,
     };
   });

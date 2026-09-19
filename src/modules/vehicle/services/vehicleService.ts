@@ -1,5 +1,5 @@
-import type { VehicleDocumentType } from '../../../generated/prisma/enums';
-import { documentProvider } from '../../../infrastructure/cloudinary';
+import type { VehicleDocumentType, VerificationStatus } from '../../../generated/prisma/enums';
+import { documentProvider, toSignedDocumentUrl } from '../../../infrastructure/cloudinary';
 import { getUniqueConstraintFields } from '../../../infrastructure/database/prismaErrors';
 import { AppError } from '../../../shared/AppError';
 import type { CreateVehicleInput } from '../schemas/createVehicle.schema';
@@ -31,7 +31,7 @@ export function toDocumentDto(document: RepositoryDocument): VehicleDocumentDto 
   return {
     id: document.id,
     documentType: document.documentType,
-    url: documentProvider.getSignedUrl(document.cloudinaryPublicId),
+    url: toSignedDocumentUrl(document.cloudinaryPublicId),
     createdAt: document.createdAt,
   };
 }
@@ -64,11 +64,7 @@ async function getOwnedVehicleOrThrow(ownerId: string, vehicleId: string) {
   const vehicle = await vehicleRepository.findById(vehicleId);
 
   if (!vehicle || vehicle.ownerId !== ownerId) {
-    throw new AppError({
-      statusCode: 404,
-      code: 'VEHICLE_NOT_FOUND',
-      message: 'Vehicle not found.',
-    });
+    throw vehicleNotFound();
   }
 
   return vehicle;
@@ -110,6 +106,67 @@ export async function updateOwnVehicle(
     return toVehicleDto(vehicle);
   } catch (error) {
     mapUniqueConstraintError(error);
+  }
+}
+
+function vehicleNotFound(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: 'VEHICLE_NOT_FOUND',
+    message: 'Vehicle not found.',
+  });
+}
+
+function vehicleNotPending(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: 'VEHICLE_NOT_PENDING',
+    message: 'This vehicle is not pending verification.',
+  });
+}
+
+// Admin review — the caller (admin module) has already enforced the ADMIN role,
+// so these are not owner-scoped. Documents get fresh signed URLs via toVehicleDto.
+export async function listVehiclesForReview(status: VerificationStatus) {
+  const vehicles = await vehicleRepository.findManyByVerificationStatus(status);
+  return vehicles.map(toVehicleDto);
+}
+
+export async function getVehicleForReview(vehicleId: string) {
+  const vehicle = await vehicleRepository.findByIdForReview(vehicleId);
+
+  if (!vehicle) {
+    throw vehicleNotFound();
+  }
+
+  return toVehicleDto(vehicle);
+}
+
+export async function verifyVehicle(vehicleId: string, adminId: string): Promise<void> {
+  const vehicle = await vehicleRepository.findById(vehicleId);
+
+  if (!vehicle) {
+    throw vehicleNotFound();
+  }
+
+  if (!(await vehicleRepository.verify(vehicleId, adminId))) {
+    throw vehicleNotPending();
+  }
+}
+
+export async function rejectVehicle(
+  vehicleId: string,
+  adminId: string,
+  reason: string,
+): Promise<void> {
+  const vehicle = await vehicleRepository.findById(vehicleId);
+
+  if (!vehicle) {
+    throw vehicleNotFound();
+  }
+
+  if (!(await vehicleRepository.reject(vehicleId, adminId, reason))) {
+    throw vehicleNotPending();
   }
 }
 
