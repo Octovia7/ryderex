@@ -7,7 +7,11 @@ import type {
   UploadDocumentResult,
 } from './DocumentProvider';
 
-const RESOURCE_TYPE = 'auto';
+// JPEG, PNG and PDF (the only formats the upload middleware accepts) are all
+// stored by Cloudinary as `image` assets, PDFs included. 'auto' is valid only
+// as an upload instruction; delivery URLs need the concrete stored type, or
+// they 404 (`Resource not found - auto/authenticated/...`).
+const RESOURCE_TYPE = 'image';
 const DELIVERY_TYPE = 'authenticated';
 
 function isConfigured(): boolean {
