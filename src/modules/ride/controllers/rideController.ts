@@ -14,8 +14,8 @@ export async function createRide(req: Request, res: Response): Promise<void> {
 
 export async function searchRides(req: Request, res: Response): Promise<void> {
   const query = req.validatedQuery as SearchRidesQuery;
-  const items = await rideSearchService.searchRides(query);
-  sendSuccess(res, { items });
+  const page = await rideSearchService.searchRides(query);
+  sendSuccess(res, page);
 }
 
 export async function getRide(req: Request, res: Response): Promise<void> {

@@ -14,6 +14,18 @@ function decimal(min: number, max: number) {
 
 const DEFAULT_LIMIT = 20;
 
+// Every sort is ascending and ends with `id` as a unique tie-breaker (see
+// rideSearchRepository), so page boundaries can never skip or repeat a row.
+export const SEARCH_SORTS = [
+  'DEPARTURE_TIME',
+  'PICKUP_DISTANCE',
+  'DESTINATION_DISTANCE',
+  'FARE',
+  'DRIVER_RATING',
+] as const;
+
+export type SearchSort = (typeof SEARCH_SORTS)[number];
+
 export const searchRidesQuerySchema = z.object({
   date: z.string().refine(isValidCalendarDate, {
     message: 'must be a valid calendar date in YYYY-MM-DD format',
@@ -22,13 +34,15 @@ export const searchRidesQuerySchema = z.object({
   pickupLng: decimal(-180, 180),
   destinationLat: decimal(-90, 90),
   destinationLng: decimal(-180, 180),
-  // Only the default ordering exists so far; the remaining sort orders arrive
-  // with the next step. Anything else is rejected here, never passed on.
-  sort: z.enum(['DEPARTURE_TIME']).default('DEPARTURE_TIME'),
-  // Declared only so it survives parsing and the service can refuse it:
-  // Zod would otherwise strip the key and a supplied cursor would be silently
-  // treated as "no cursor". Loosely typed on purpose, so every form of a
-  // supplied cursor (empty, repeated, plausible-looking) is refused alike.
+  // The client only ever sends the enum value, never SQL: the repository maps
+  // each one to a fixed expression. Anything outside the enum is rejected here.
+  sort: z.enum(SEARCH_SORTS).default('DEPARTURE_TIME'),
+  // Declared so it survives parsing (Zod would otherwise strip the key and a
+  // supplied cursor would be silently treated as "no cursor"), but validated
+  // by the service, not here: a bad cursor is INVALID_CURSOR, not
+  // VALIDATION_ERROR, and whether it is valid depends on the requested sort.
+  // Loosely typed on purpose, so every form of a supplied cursor (empty,
+  // repeated, malformed) reaches that one check and is refused alike.
   cursor: z.unknown().optional(),
   // A `limit` above RIDE_SEARCH_MAX_LIMIT is clamped by the service, not
   // rejected — only a non-positive or non-numeric one is an error.
