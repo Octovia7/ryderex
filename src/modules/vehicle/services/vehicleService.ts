@@ -125,6 +125,19 @@ function vehicleNotPending(): AppError {
   });
 }
 
+// Read-only, owner-scoped lookup for the ride module's eligibility check.
+// Same 404 rule as every other owner-scoped read: a vehicle that exists but
+// isn't yours is indistinguishable from one that doesn't.
+export async function getVehicleForRideCreation(ownerId: string, vehicleId: string) {
+  const vehicle = await vehicleRepository.findForRideCreation(vehicleId);
+
+  if (!vehicle || vehicle.ownerId !== ownerId) {
+    throw vehicleNotFound();
+  }
+
+  return vehicle;
+}
+
 // Admin review — the caller (admin module) has already enforced the ADMIN role,
 // so these are not owner-scoped. Documents get fresh signed URLs via toVehicleDto.
 export async function listVehiclesForReview(status: VerificationStatus) {

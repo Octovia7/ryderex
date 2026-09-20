@@ -74,6 +74,20 @@ enum VehicleDocumentType {
   @@map("vehicle_document_type")
 }
 
+// One status column for the whole ride lifecycle. PENDING_PAYMENT exists
+// because the driver's posting commission is confirmed asynchronously, so a
+// ride cannot be searchable inside the request that created it.
+enum RideStatus {
+  PENDING_PAYMENT
+  OPEN
+  FULL
+  STARTED
+  COMPLETED
+  CANCELLED
+
+  @@map("ride_status")
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -113,6 +127,7 @@ model User {
   verifiedVehicles           Vehicle[]      @relation("VehicleVerifier")
   driverLicenseVerifier      User?          @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
   driverLicenseVerifications User[]         @relation("DriverLicenseVerifier")
+  ridesDriven                Ride[]         @relation("RideDriver")
 
   @@map("users")
 }
@@ -170,6 +185,7 @@ model Vehicle {
   verifier User? @relation("VehicleVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
 
   documents VehicleDocument[]
+  rides     Ride[]
 
   @@index([ownerId])
   @@map("vehicles")
@@ -188,4 +204,50 @@ model VehicleDocument {
 
   @@index([vehicleId])
   @@map("vehicle_documents")
+}
+
+model Ride {
+  id        String @id @default(uuid()) @db.Uuid
+  driverId  String @map("driver_id") @db.Uuid
+  vehicleId String @map("vehicle_id") @db.Uuid
+
+  // Prisma Client has no native geography type, so these are written and
+  // read (ST_MakePoint / ST_X / ST_Y) by raw SQL confined to rideRepository.
+  // Their GiST indexes are hand-added to the migration SQL — Prisma cannot
+  // declare an @@index on an Unsupported field, and will propose DROPping
+  // them on any later migration touching this table (strip those lines).
+  origin      Unsupported("geography(Point,4326)")
+  destination Unsupported("geography(Point,4326)")
+
+  departureTime  DateTime @map("departure_time") @db.Timestamptz(3)
+  totalSeats     Int      @map("total_seats")
+  availableSeats Int      @map("available_seats")
+
+  // Computed once at creation and never recalculated from current config, so
+  // a pricing change only ever affects new rides.
+  farePerSeat             Decimal @map("fare_per_seat") @db.Decimal(10, 2)
+  postingCommissionAmount Decimal @map("posting_commission_amount") @db.Decimal(10, 2)
+
+  // The route as returned by the map provider when the ride was created:
+  // every coordinate ([{ lat, lng }, ...]), plus its length and duration.
+  routeGeometry        Json @map("route_geometry")
+  routeDistanceMeters  Int  @map("route_distance_meters")
+  routeDurationSeconds Int  @map("route_duration_seconds")
+
+  // The payment provider's reference for the driver's posting-commission
+  // order. Payment/Transaction rows do not exist yet, so it lives here.
+  paymentOrderId String @map("payment_order_id")
+
+  status RideStatus @default(PENDING_PAYMENT)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  driver  User    @relation("RideDriver", fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([departureTime, status])
+  @@map("rides")
 }

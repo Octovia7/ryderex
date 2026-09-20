@@ -49,6 +49,22 @@ export function findById(id: string) {
   return prisma.vehicle.findUnique({ where: { id }, select: SELECT });
 }
 
+// Only what the ride module's eligibility check needs — no documents, so
+// nothing has to mint signed URLs just to decide whether a ride may be posted.
+export function findForRideCreation(id: string) {
+  return prisma.vehicle.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      ownerId: true,
+      vehicleType: true,
+      seatCapacity: true,
+      status: true,
+      verificationStatus: true,
+    },
+  });
+}
+
 export function findManyByVerificationStatus(status: VerificationStatus) {
   return prisma.vehicle.findMany({
     where: { verificationStatus: status },

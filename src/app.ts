@@ -8,6 +8,7 @@ import { notFoundHandler } from './middleware/notFoundHandler';
 import { requestId } from './middleware/requestId';
 import adminRoutes from './modules/admin/routes';
 import authRoutes from './modules/auth/routes';
+import rideRoutes from './modules/ride/routes';
 import userRoutes from './modules/user/routes';
 import vehicleRoutes from './modules/vehicle/routes';
 
@@ -47,6 +48,7 @@ export function createApp(): Application {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', userRoutes);
   app.use('/api/v1/vehicles', vehicleRoutes);
+  app.use('/api/v1/rides', rideRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFoundHandler);
