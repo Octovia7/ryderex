@@ -80,6 +80,10 @@ const envSchema = z.object({
   // pricing incident.
   FARE_RATING_MULTIPLIER_MIN: z.coerce.number().positive().default(0.95),
   FARE_RATING_MULTIPLIER_MAX: z.coerce.number().positive().default(1.05),
+
+  // Ceiling for a ride-search page. A larger `limit` is silently clamped to
+  // this rather than rejected — a client asking for too many is not an error.
+  RIDE_SEARCH_MAX_LIMIT: z.coerce.number().int().positive().default(50),
 });
 
 function loadEnv() {
@@ -172,6 +176,9 @@ export const config = {
     trafficMultiplierMax: env.FARE_TRAFFIC_MULTIPLIER_MAX,
     ratingMultiplierMin: env.FARE_RATING_MULTIPLIER_MIN,
     ratingMultiplierMax: env.FARE_RATING_MULTIPLIER_MAX,
+  },
+  rideSearch: {
+    maxLimit: env.RIDE_SEARCH_MAX_LIMIT,
   },
 } as const;
 

@@ -7,6 +7,8 @@ const SELECT = {
   registrationNumber: true,
   vehicleType: true,
   seatCapacity: true,
+  model: true,
+  isAc: true,
   status: true,
   verificationStatus: true,
   verifiedBy: true,
@@ -31,6 +33,8 @@ export interface CreateVehicleData {
   registrationNumber: string;
   vehicleType: VehicleType;
   seatCapacity: number;
+  model?: string;
+  isAc?: boolean;
 }
 
 export function create(data: CreateVehicleData) {
@@ -108,6 +112,8 @@ export interface UpdateVehicleData {
   registrationNumber?: string;
   vehicleType?: VehicleType;
   seatCapacity?: number;
+  model?: string;
+  isAc?: boolean;
 }
 
 export function updateById(id: string, data: UpdateVehicleData) {

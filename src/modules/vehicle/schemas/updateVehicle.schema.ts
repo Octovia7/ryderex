@@ -13,6 +13,8 @@ export const updateVehicleSchema = z
     registrationNumber: z.string().trim().min(1).transform(normalizeRegistrationNumber).optional(),
     vehicleType: z.nativeEnum(VehicleType).optional(),
     seatCapacity: z.number().int().positive().optional(),
+    model: z.string().trim().min(1).max(100).optional(),
+    isAc: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided.',

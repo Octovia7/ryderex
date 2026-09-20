@@ -169,6 +169,12 @@ model Vehicle {
   vehicleType        VehicleType @map("vehicle_type")
   seatCapacity       Int         @map("seat_capacity")
 
+  // Shown to passengers in ride search results. Optional on purpose: a driver
+  // can register a vehicle without them, so existing vehicles stay valid
+  // (model unknown, is_ac false until the driver says otherwise).
+  model String?
+  isAc  Boolean @default(false) @map("is_ac")
+
   // Two independent lifecycles, deliberately not one status column:
   // `status` is the vehicle's own operational state, `verificationStatus`
   // is the admin trust decision. Ride-creation eligibility reads both.

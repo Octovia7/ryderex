@@ -77,6 +77,8 @@ export async function createVehicle(ownerId: string, input: CreateVehicleInput) 
       registrationNumber: input.registrationNumber,
       vehicleType: input.vehicleType,
       seatCapacity: input.seatCapacity,
+      model: input.model,
+      isAc: input.isAc,
     });
     return toVehicleDto(vehicle);
   } catch (error) {

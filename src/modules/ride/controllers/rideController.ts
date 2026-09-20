@@ -1,13 +1,21 @@
 import type { Request, Response } from 'express';
 import { sendSuccess } from '../../../shared/sendSuccess';
+import * as rideSearchService from '../services/rideSearchService';
 import * as rideService from '../services/rideService';
 import type { CreateRideInput } from '../schemas/createRide.schema';
 import type { RideIdParams } from '../schemas/rideIdParams.schema';
+import type { SearchRidesQuery } from '../schemas/searchRides.schema';
 
 export async function createRide(req: Request, res: Response): Promise<void> {
   const input = req.body as CreateRideInput;
   const ride = await rideService.createRide(req.user!.id, input);
   sendSuccess(res, ride, 201);
+}
+
+export async function searchRides(req: Request, res: Response): Promise<void> {
+  const query = req.validatedQuery as SearchRidesQuery;
+  const items = await rideSearchService.searchRides(query);
+  sendSuccess(res, { items });
 }
 
 export async function getRide(req: Request, res: Response): Promise<void> {
