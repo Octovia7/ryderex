@@ -51,6 +51,35 @@ const envSchema = z.object({
   // setting to be enabled — account-side configuration this app cannot set.
   CLOUDINARY_AUTH_TOKEN_KEY: z.string().optional(),
   DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+
+  // Only one implementation exists today, but the env var (rather than a
+  // hard-coded choice) is what made the Mapbox -> Geoapify swap a config
+  // change instead of a rewrite, and keeps the next swap just as cheap.
+  MAP_PROVIDER: z.enum(['geoapify']).default('geoapify'),
+  // No safe fallback exists for a map provider, same as Cloudinary — left
+  // optional for local development without a Geoapify account;
+  // GeoapifyMapProvider throws clearly at call time when unconfigured
+  // rather than at boot.
+  MAP_PROVIDER_API_KEY: z.string().optional(),
+
+  // Every fare input is configuration, never hard-coded, so a pricing change
+  // is a deploy, not a code change. Defaults match the documented formula.
+  FARE_BASE_FARE: z.coerce.number().positive().default(30),
+  FARE_PRICE_PER_KM: z.coerce.number().positive().default(8),
+  FARE_VEHICLE_MULTIPLIER_HATCHBACK: z.coerce.number().positive().default(1.0),
+  FARE_VEHICLE_MULTIPLIER_SEDAN: z.coerce.number().positive().default(1.15),
+  FARE_VEHICLE_MULTIPLIER_MUV: z.coerce.number().positive().default(1.3),
+  FARE_VEHICLE_MULTIPLIER_SUV: z.coerce.number().positive().default(1.35),
+  // Bounds, not the multiplier itself — no caller supplies a traffic reading
+  // yet (it defaults to 1.0), but a future one — or a bug in one — cannot
+  // produce an absurd price because the bounds are enforced regardless.
+  FARE_TRAFFIC_MULTIPLIER_MIN: z.coerce.number().positive().default(0.8),
+  FARE_TRAFFIC_MULTIPLIER_MAX: z.coerce.number().positive().default(2.0),
+  // Driver rating can move a fare by at most ±5% — bounded on purpose, since
+  // multipliers compose multiplicatively and a single unbounded one is a
+  // pricing incident.
+  FARE_RATING_MULTIPLIER_MIN: z.coerce.number().positive().default(0.95),
+  FARE_RATING_MULTIPLIER_MAX: z.coerce.number().positive().default(1.05),
 });
 
 function loadEnv() {
@@ -65,7 +94,28 @@ function loadEnv() {
     });
   }
 
-  return parsed.data;
+  const { data } = parsed;
+
+  // Zod validates each var in isolation; a min bound greater than its own max
+  // bound is a cross-field mistake no single-field rule can catch, and would
+  // silently clamp every fare to one end of the range instead of failing loud.
+  if (data.FARE_TRAFFIC_MULTIPLIER_MIN > data.FARE_TRAFFIC_MULTIPLIER_MAX) {
+    throw new AppError({
+      statusCode: 500,
+      code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+      message: 'FARE_TRAFFIC_MULTIPLIER_MIN must not exceed FARE_TRAFFIC_MULTIPLIER_MAX.',
+    });
+  }
+
+  if (data.FARE_RATING_MULTIPLIER_MIN > data.FARE_RATING_MULTIPLIER_MAX) {
+    throw new AppError({
+      statusCode: 500,
+      code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+      message: 'FARE_RATING_MULTIPLIER_MIN must not exceed FARE_RATING_MULTIPLIER_MAX.',
+    });
+  }
+
+  return data;
 }
 
 const env = loadEnv();
@@ -104,6 +154,24 @@ export const config = {
     apiSecret: env.CLOUDINARY_API_SECRET,
     authTokenKey: env.CLOUDINARY_AUTH_TOKEN_KEY,
     signedUrlTtlSeconds: env.DOCUMENT_SIGNED_URL_TTL_SECONDS,
+  },
+  maps: {
+    provider: env.MAP_PROVIDER,
+    geoapifyApiKey: env.MAP_PROVIDER_API_KEY,
+  },
+  fare: {
+    baseFare: env.FARE_BASE_FARE,
+    pricePerKm: env.FARE_PRICE_PER_KM,
+    vehicleMultipliers: {
+      HATCHBACK: env.FARE_VEHICLE_MULTIPLIER_HATCHBACK,
+      SEDAN: env.FARE_VEHICLE_MULTIPLIER_SEDAN,
+      MUV: env.FARE_VEHICLE_MULTIPLIER_MUV,
+      SUV: env.FARE_VEHICLE_MULTIPLIER_SUV,
+    },
+    trafficMultiplierMin: env.FARE_TRAFFIC_MULTIPLIER_MIN,
+    trafficMultiplierMax: env.FARE_TRAFFIC_MULTIPLIER_MAX,
+    ratingMultiplierMin: env.FARE_RATING_MULTIPLIER_MIN,
+    ratingMultiplierMax: env.FARE_RATING_MULTIPLIER_MAX,
   },
 } as const;
 
