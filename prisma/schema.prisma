@@ -88,6 +88,18 @@ enum RideStatus {
   @@map("ride_status")
 }
 
+// One status column for the whole booking lifecycle — never split into a
+// booking status plus a payment status. Seat holds are PENDING_PAYMENT rows.
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PAYMENT_FAILED
+  CANCELLED
+  COMPLETED
+
+  @@map("booking_status")
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -128,6 +140,7 @@ model User {
   driverLicenseVerifier      User?          @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
   driverLicenseVerifications User[]         @relation("DriverLicenseVerifier")
   ridesDriven                Ride[]         @relation("RideDriver")
+  bookings                   Booking[]      @relation("BookingPassenger")
 
   @@map("users")
 }
@@ -249,11 +262,54 @@ model Ride {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  driver  User    @relation("RideDriver", fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver   User      @relation("RideDriver", fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle  Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  bookings Booking[]
 
   @@index([driverId])
   @@index([vehicleId])
   @@index([departureTime, status])
   @@map("rides")
+}
+
+// A passenger's claim on some of a ride's seats. The seat hold IS this row
+// (in PENDING_PAYMENT) plus the `available_seats` decrement that created it —
+// there is no Redis counter and no separate reservation table.
+model Booking {
+  id          String @id @default(uuid()) @db.Uuid
+  rideId      String @map("ride_id") @db.Uuid
+  passengerId String @map("passenger_id") @db.Uuid
+
+  seats Int
+
+  // Copied from the ride's persisted fare at creation and never recalculated,
+  // so a later pricing change cannot alter what an existing booking owes.
+  farePerSeat   Decimal @map("fare_per_seat") @db.Decimal(10, 2)
+  totalFare     Decimal @map("total_fare") @db.Decimal(10, 2)
+  prepaidAmount Decimal @map("prepaid_amount") @db.Decimal(10, 2)
+
+  // Plain latitude/longitude — bookings need no spatial queries, so unlike
+  // rides they are not PostGIS geography. Default to the ride's own origin
+  // and destination when the passenger supplies no coordinates of their own.
+  pickupLat Float @map("pickup_lat")
+  pickupLng Float @map("pickup_lng")
+  dropLat   Float @map("drop_lat")
+  dropLng   Float @map("drop_lng")
+
+  status BookingStatus @default(PENDING_PAYMENT)
+
+  // The payment provider's reference for the prepayment order. Null between the
+  // booking committing and the order being attached — the order is created
+  // AFTER the seat-reservation transaction, never inside it.
+  paymentOrderId String? @map("payment_order_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  passenger User @relation("BookingPassenger", fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([passengerId])
+  @@map("bookings")
 }

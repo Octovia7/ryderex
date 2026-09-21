@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Prisma } from '../../../generated/prisma/client';
 import type { RideStatus } from '../../../generated/prisma/enums';
 import { mapProvider } from '../../../infrastructure/maps';
 import type { Coordinates } from '../../../infrastructure/maps';
@@ -181,4 +182,31 @@ export function cancelRide(driverId: string, rideId: string): Promise<RideDto> {
     'CANCELLED',
     'cancelled',
   );
+}
+
+// What another module (booking) may know about a ride: who drives it and
+// whether it is bookable. Deliberately not the whole ride — nothing else about
+// it is that module's business, and no repository crosses the module boundary.
+export async function getRideForBooking(
+  rideId: string,
+): Promise<{ id: string; driverId: string; status: RideStatus }> {
+  const ride = await rideRepository.findStatusById(rideId);
+
+  if (!ride) {
+    throw rideNotFound();
+  }
+
+  return ride;
+}
+
+// Seat allocation stays the ride module's concern (it owns `available_seats` and
+// the OPEN/FULL flip). The booking module composes these into ITS transaction by
+// passing the transaction client through, so the seat change and the booking
+// write commit or roll back together — without reaching into rideRepository.
+export function reserveSeats(tx: Prisma.TransactionClient, rideId: string, seats: number) {
+  return rideRepository.reserveSeats(tx, rideId, seats);
+}
+
+export function releaseSeats(tx: Prisma.TransactionClient, rideId: string, seats: number) {
+  return rideRepository.releaseSeats(tx, rideId, seats);
 }

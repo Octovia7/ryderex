@@ -168,3 +168,97 @@ export async function transitionStatus(
   });
   return result.count === 1;
 }
+
+// The base client or a transaction client: seat reservation and release are
+// composed by a service into ONE transaction with a booking write, so they
+// must run on whatever client that transaction hands them.
+type SqlClient = Pick<typeof prisma, '$queryRaw' | '$executeRaw'>;
+
+interface RawReservedSeats {
+  farePerSeat: unknown;
+  driverId: string;
+  originLat: number;
+  originLng: number;
+  destinationLat: number;
+  destinationLng: number;
+}
+
+export interface ReservedSeats {
+  farePerSeat: number;
+  driverId: string;
+  origin: Coordinates;
+  destination: Coordinates;
+}
+
+// THE seat-allocation primitive: one conditional UPDATE whose WHERE carries the
+// seat guard, so the check and the decrement cannot separate. PostgreSQL takes a
+// row-level exclusive lock for the statement's duration; a concurrent
+// reservation blocks on it, then re-evaluates `available_seats >= n` against the
+// COMMITTED value — and matches nothing. No SELECT ... FOR UPDATE, no advisory or
+// Redis lock, no SERIALIZABLE: there is no read-then-write window to lose.
+//
+// OPEN -> FULL rides along in the same statement (`available_seats - n = 0`), so
+// the seat count and the status can never disagree. `null` means the guard
+// failed: not enough seats, or the ride is not OPEN/FULL any more.
+//
+// The fare and both endpoints come back from the same statement, so a booking is
+// priced and located from exactly the row whose seats it just took.
+export async function reserveSeats(
+  client: SqlClient,
+  rideId: string,
+  seats: number,
+): Promise<ReservedSeats | null> {
+  const rows = await client.$queryRaw<RawReservedSeats[]>(Prisma.sql`
+    UPDATE rides
+    SET available_seats = available_seats - ${seats}::int,
+        status = CASE WHEN available_seats - ${seats}::int = 0 THEN 'FULL'::ride_status ELSE status END,
+        updated_at = now()
+    WHERE id = ${rideId}::uuid
+      AND status IN ('OPEN', 'FULL')
+      AND available_seats >= ${seats}::int
+    RETURNING
+      fare_per_seat AS "farePerSeat",
+      driver_id AS "driverId",
+      ST_Y(origin::geometry) AS "originLat",
+      ST_X(origin::geometry) AS "originLng",
+      ST_Y(destination::geometry) AS "destinationLat",
+      ST_X(destination::geometry) AS "destinationLng"
+  `);
+  const row = rows[0];
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    farePerSeat: Number(row.farePerSeat),
+    driverId: row.driverId,
+    origin: { lat: row.originLat, lng: row.originLng },
+    destination: { lat: row.destinationLat, lng: row.destinationLng },
+  };
+}
+
+// The mirror of reserveSeats: hand seats back, and reopen a FULL ride. The guard
+// `available_seats + n <= total_seats` means a release can never push a ride past
+// its capacity, however many times it is (wrongly) called — the same "seats are
+// never oversold" invariant, from the other side. FULL -> OPEN is the only status
+// change: a CANCELLED, STARTED or COMPLETED ride keeps its status.
+//
+// Not reachable over HTTP yet; the cancellation and expiry paths that call it
+// arrive later. `false` means nothing was written.
+export async function releaseSeats(
+  client: SqlClient,
+  rideId: string,
+  seats: number,
+): Promise<boolean> {
+  const affected = await client.$executeRaw(Prisma.sql`
+    UPDATE rides
+    SET available_seats = available_seats + ${seats}::int,
+        status = CASE WHEN status = 'FULL' THEN 'OPEN'::ride_status ELSE status END,
+        updated_at = now()
+    WHERE id = ${rideId}::uuid
+      AND available_seats + ${seats}::int <= total_seats
+  `);
+
+  return affected === 1;
+}
