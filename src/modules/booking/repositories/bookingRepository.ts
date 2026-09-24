@@ -76,3 +76,22 @@ export async function cancel(client: Client, id: string, passengerId: string): P
   });
   return result.count === 1;
 }
+
+// TTL-job-initiated expiry: a conditional UPDATE valid ONLY from
+// PENDING_PAYMENT — never CONFIRMED, unlike a passenger's own cancel. This is
+// what makes the handler idempotent by construction: if the booking was
+// confirmed (or already cancelled/failed) by the time the delayed job runs,
+// nothing matches and no seat is released, however many times the job fires.
+//
+// No passenger id in the WHERE — the job is not acting on anyone's behalf; the
+// booking id it was scheduled with is trusted, the same way a `jobId` is.
+//
+// Takes a client so the service can run it in the SAME transaction as the seat
+// release. Callers branch on the returned boolean, never on a prior read.
+export async function expireIfPending(client: Client, id: string): Promise<boolean> {
+  const result = await client.booking.updateMany({
+    where: { id, status: 'PENDING_PAYMENT' },
+    data: { status: 'CANCELLED' },
+  });
+  return result.count === 1;
+}

@@ -3,6 +3,7 @@ import type { BookingStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import type { Coordinates } from '../../../infrastructure/maps';
 import { paymentProvider } from '../../../infrastructure/payments';
+import { scheduleBookingExpiry } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
@@ -169,7 +170,15 @@ export async function createBooking(
     });
   }
 
-  // Committed. The order is for the amount the booking itself recorded.
+  // Committed. Scheduled here, before the payment call, and unconditionally:
+  // this is what makes an abandoned booking self-heal even if createOrder()
+  // is about to fail below — the seat hold still expires on schedule either
+  // way. Neither this nor the payment call may sit inside the transaction
+  // above; both are external calls, and a rollback cannot un-enqueue a job
+  // any more than it can un-create a gateway order.
+  await scheduleBookingExpiry(bookingId);
+
+  // The order is for the amount the booking itself recorded.
   const order = await paymentProvider.createOrder({
     amount: Number(outcome.booking.prepaidAmount),
     receipt: bookingId,

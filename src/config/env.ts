@@ -84,6 +84,11 @@ const envSchema = z.object({
   // Ceiling for a ride-search page. A larger `limit` is silently clamped to
   // this rather than rejected — a client asking for too many is not an error.
   RIDE_SEARCH_MAX_LIMIT: z.coerce.number().int().positive().default(50),
+
+  // How long a PENDING_PAYMENT booking holds its seats before the seat-hold
+  // expiry job releases them if payment never completes. 900s (15 minutes) is
+  // the documented default.
+  BOOKING_PAYMENT_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 });
 
 function loadEnv() {
@@ -179,6 +184,9 @@ export const config = {
   },
   rideSearch: {
     maxLimit: env.RIDE_SEARCH_MAX_LIMIT,
+  },
+  booking: {
+    paymentTtlSeconds: env.BOOKING_PAYMENT_TTL_SECONDS,
   },
 } as const;
 
