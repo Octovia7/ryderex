@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '../../../generated/prisma/client';
 import type { RideStatus } from '../../../generated/prisma/enums';
+import { prisma } from '../../../infrastructure/database/prismaClient';
 import { mapProvider } from '../../../infrastructure/maps';
 import type { Coordinates } from '../../../infrastructure/maps';
-import { paymentProvider } from '../../../infrastructure/payments';
+import { paymentProvider, providerName } from '../../../infrastructure/payments';
 import { AppError } from '../../../shared/AppError';
+import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as userService from '../../user/services/userService';
 import * as rideRepository from '../repositories/rideRepository';
 import type { RideRecord } from '../repositories/rideRepository';
@@ -60,11 +62,16 @@ function rideNotFound(): AppError {
 }
 
 // Every external call — the route, then the payment order — happens BEFORE
-// the single database write, never inside it: a transaction holds a pooled
+// the database write, never inside it: a transaction holds a pooled
 // connection and row locks, and a rollback cannot un-create a gateway order.
 // The accepted trade-off is the reverse failure: if the insert fails after
 // the order was created, an orphan order exists — but nothing has been
 // charged either way, and a provider failure earlier leaves no ride behind.
+//
+// The ride INSERT and its Payment/Transaction rows are one transaction
+// (architecture.md §11: "called from inside the same DB transaction as the
+// ride/booking INSERT for ride creation") — both are pure database writes
+// by the time this runs, since the order already exists.
 //
 // Fare, commission and the ride's status are all derived here. Nothing of
 // the kind is ever read from the request body.
@@ -96,20 +103,33 @@ export async function createRide(driverId: string, input: CreateRideInput): Prom
     receipt: rideId,
   });
 
-  const ride = await rideRepository.create({
-    id: rideId,
-    driverId,
-    vehicleId: input.vehicleId,
-    origin,
-    destination,
-    departureTime: input.departureTime,
-    totalSeats: input.totalSeats,
-    farePerSeat,
-    postingCommissionAmount,
-    routeGeometry: route.routeGeometry,
-    routeDistanceMeters: Math.round(route.distanceMeters),
-    routeDurationSeconds: Math.round(route.durationSeconds),
-    paymentOrderId: order.orderId,
+  const ride = await prisma.$transaction(async (tx) => {
+    const created = await rideRepository.create(tx, {
+      id: rideId,
+      driverId,
+      vehicleId: input.vehicleId,
+      origin,
+      destination,
+      departureTime: input.departureTime,
+      totalSeats: input.totalSeats,
+      farePerSeat,
+      postingCommissionAmount,
+      routeGeometry: route.routeGeometry,
+      routeDistanceMeters: Math.round(route.distanceMeters),
+      routeDurationSeconds: Math.round(route.durationSeconds),
+      paymentOrderId: order.orderId,
+    });
+
+    await paymentRecordService.recordOrder(tx, {
+      rideId: created.id,
+      bookingId: null,
+      provider: providerName,
+      providerOrderId: order.orderId,
+      amount: postingCommissionAmount,
+      transactionType: 'DRIVER_RIDE_FEE',
+    });
+
+    return created;
   });
 
   return toRideDto(ride);

@@ -100,6 +100,38 @@ enum BookingStatus {
   @@map("booking_status")
 }
 
+// A gateway attempt's own lifecycle — separate from whatever the Ride/Booking
+// it funds is doing. Only a signature-verified webhook (a later step) ever
+// moves this past CREATED.
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+
+  @@map("payment_status")
+}
+
+// A closed enum on purpose (architecture.md §11): the business record types
+// this system ever produces. FINAL_PAYMENT (ride completion) and REFUND
+// (cancellation) have no producer yet — declared now so the schema never
+// needs a migration just to add a type this phase already anticipates.
+enum TransactionType {
+  DRIVER_RIDE_FEE
+  BOOKING_PREPAYMENT
+  FINAL_PAYMENT
+  REFUND
+
+  @@map("transaction_type")
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+
+  @@map("transaction_status")
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -266,6 +298,9 @@ model Ride {
   vehicle  Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   bookings Booking[]
 
+  payments     Payment[]
+  transactions Transaction[]
+
   @@index([driverId])
   @@index([vehicleId])
   @@index([departureTime, status])
@@ -309,7 +344,85 @@ model Booking {
   ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
   passenger User @relation("BookingPassenger", fields: [passengerId], references: [id], onDelete: Cascade)
 
+  payments     Payment[]
+  transactions Transaction[]
+
   @@index([rideId])
   @@index([passengerId])
   @@map("bookings")
+}
+
+// A gateway attempt: which provider, its order/payment ids, the amount, and
+// its own CREATED -> SUCCESS|FAILED lifecycle — kept separate from whatever
+// business state the Ride/Booking it funds is in (architecture.md §11,
+// "Gateway-level detail lives on the Payment row's own status").
+//
+// Exactly one of rideId/bookingId is set, matching the ERD (Ride --o{ Payment
+// "posting fee", Booking --o{ Payment "prepayment + final") — never both,
+// never neither. Nothing enforces that at the database level (there is no
+// CHECK constraint), because the only writer is paymentRecordService.recordOrder,
+// which always supplies exactly one; this is the same trust boundary as
+// Booking.paymentOrderId, written by exactly one function.
+model Payment {
+  id        String  @id @default(uuid()) @db.Uuid
+  rideId    String? @map("ride_id") @db.Uuid
+  bookingId String? @map("booking_id") @db.Uuid
+
+  provider String
+
+  // Unique so a webhook (a later step) can look up the Payment it resolves by
+  // this id alone (claude.md §6's load-bearing constraint list).
+  providerOrderId   String  @unique @map("provider_order_id")
+  providerPaymentId String? @map("provider_payment_id")
+
+  amount Decimal       @db.Decimal(10, 2)
+  status PaymentStatus @default(CREATED)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // SetNull, not Cascade (architecture.md §6): financial history outlives
+  // whatever it refers to. Neither Ride nor Booking is ever deleted by any
+  // code path today, so this is defensive, not exercised.
+  ride         Ride?         @relation(fields: [rideId], references: [id], onDelete: SetNull)
+  booking      Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([rideId])
+  @@index([bookingId])
+  @@map("payments")
+}
+
+// The business record a Payment attempt produces: what it was for (`type`),
+// how much, and its own PENDING -> SUCCESS|FAILED lifecycle — a reconciliation
+// history, not a success log, since a FAILED attempt gets a Transaction row
+// too (architecture.md §11).
+//
+// rideId/bookingId are denormalized copies of the parent Payment's — reads
+// never need to join through Payment to find "every transaction for this
+// ride" — carried at creation time by paymentRecordService.recordOrder, the
+// one function that writes both rows together, so they cannot drift.
+model Transaction {
+  id        String  @id @default(uuid()) @db.Uuid
+  paymentId String  @map("payment_id") @db.Uuid
+  rideId    String? @map("ride_id") @db.Uuid
+  bookingId String? @map("booking_id") @db.Uuid
+
+  type   TransactionType
+  amount Decimal           @db.Decimal(10, 2)
+  status TransactionStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Cascade: a Transaction has no meaning without the Payment attempt it
+  // records — unlike the Ride/Booking references below, it is never optional.
+  payment Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  ride    Ride?    @relation(fields: [rideId], references: [id], onDelete: SetNull)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([rideId])
+  @@index([bookingId])
+  @@map("transactions")
 }

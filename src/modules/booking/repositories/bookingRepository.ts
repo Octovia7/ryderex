@@ -48,8 +48,17 @@ export function findById(id: string) {
 
 // Conditional UPDATE: an order is attached exactly once. `count === 0` means
 // one is already attached (or the booking is gone) and nothing was overwritten.
-export async function attachPaymentOrder(id: string, paymentOrderId: string): Promise<boolean> {
-  const result = await prisma.booking.updateMany({
+//
+// Takes a client so the service can run this in the SAME follow-up
+// transaction as the Payment/Transaction rows that record this same order
+// (architecture.md §11) — both are pure database writes by the time this
+// runs, since the order already exists.
+export async function attachPaymentOrder(
+  client: Client,
+  id: string,
+  paymentOrderId: string,
+): Promise<boolean> {
+  const result = await client.booking.updateMany({
     where: { id, paymentOrderId: null },
     data: { paymentOrderId },
   });

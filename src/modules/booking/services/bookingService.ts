@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { BookingStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import type { Coordinates } from '../../../infrastructure/maps';
-import { paymentProvider } from '../../../infrastructure/payments';
+import { paymentProvider, providerName } from '../../../infrastructure/payments';
 import { scheduleBookingExpiry } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
+import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
 import type { CreateBookingInput } from '../schemas/createBooking.schema';
@@ -90,14 +91,19 @@ function bookingNotFound(): AppError {
 //     fare that same statement returned. If the reservation fails the outcome is
 //     a RESULT VARIANT, not a throw: throwing inside an interactive transaction
 //     rolls it back, and the throw belongs after the transaction has finished.
-//  3. Only AFTER commit, the external call: create the prepayment order, then
-//     attach its id to the booking. A payment call must never sit inside the
-//     transaction — it would hold the ride's row lock (blocking every other
-//     passenger) for network latency, and a rollback cannot un-create an order.
+//  3. Only AFTER commit, the external call: create the prepayment order. Then,
+//     in a small follow-up transaction, attach its id to the booking and
+//     record the Payment/Transaction rows for it together (architecture.md
+//     §11) — both are pure database writes by that point, since the order
+//     already exists; only the call to create it had to stay outside any
+//     transaction. A payment call must never sit inside a transaction — it
+//     would hold the ride's row lock (blocking every other passenger) for
+//     network latency, and a rollback cannot un-create an order.
 //
 // If createOrder fails, the booking simply stays PENDING_PAYMENT with no order
-// attached: the seat hold was already committed, and it is released by the
-// seat-hold expiry that a later step adds — nothing to unwind here.
+// attached and no Payment/Transaction rows: the seat hold was already
+// committed, and it is released by the seat-hold expiry that a later step
+// adds — nothing to unwind here.
 export async function createBooking(
   passengerId: string,
   rideId: string,
@@ -183,7 +189,18 @@ export async function createBooking(
     amount: Number(outcome.booking.prepaidAmount),
     receipt: bookingId,
   });
-  await bookingRepository.attachPaymentOrder(bookingId, order.orderId);
+
+  await prisma.$transaction(async (tx) => {
+    await bookingRepository.attachPaymentOrder(tx, bookingId, order.orderId);
+    await paymentRecordService.recordOrder(tx, {
+      rideId: null,
+      bookingId,
+      provider: providerName,
+      providerOrderId: order.orderId,
+      amount: Number(outcome.booking.prepaidAmount),
+      transactionType: 'BOOKING_PREPAYMENT',
+    });
+  });
 
   const created = await bookingRepository.findById(bookingId);
 

@@ -104,10 +104,20 @@ export interface CreateRideData {
   paymentOrderId: string;
 }
 
+// The base client or a transaction client: every function below that takes
+// one is composed by a service into ONE transaction with another module's
+// write, so it must run on whatever client that transaction hands it.
+type SqlClient = Pick<typeof prisma, '$queryRaw' | '$executeRaw'>;
+
 // A new ride always starts PENDING_PAYMENT with every seat still available;
 // neither is a caller's choice.
-export async function create(data: CreateRideData): Promise<RideRecord> {
-  const rows = await prisma.$queryRaw<RawRideRow[]>(Prisma.sql`
+//
+// Takes a client (the base client, or a transaction client) so the service
+// can run this in the SAME transaction as the Payment/Transaction rows that
+// record its posting-commission order — the same pattern reserveSeats and
+// releaseSeats below already use.
+export async function create(client: SqlClient, data: CreateRideData): Promise<RideRecord> {
+  const rows = await client.$queryRaw<RawRideRow[]>(Prisma.sql`
     INSERT INTO rides (
       id, driver_id, vehicle_id, origin, destination, departure_time,
       total_seats, available_seats, fare_per_seat, posting_commission_amount,
@@ -168,11 +178,6 @@ export async function transitionStatus(
   });
   return result.count === 1;
 }
-
-// The base client or a transaction client: seat reservation and release are
-// composed by a service into ONE transaction with a booking write, so they
-// must run on whatever client that transaction hands them.
-type SqlClient = Pick<typeof prisma, '$queryRaw' | '$executeRaw'>;
 
 interface RawReservedSeats {
   farePerSeat: unknown;
