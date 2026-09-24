@@ -167,12 +167,13 @@ model User {
 
   refreshTokens              RefreshToken[]
   documents                  UserDocument[]
-  vehicles                   Vehicle[]      @relation("VehicleOwner")
-  verifiedVehicles           Vehicle[]      @relation("VehicleVerifier")
-  driverLicenseVerifier      User?          @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
-  driverLicenseVerifications User[]         @relation("DriverLicenseVerifier")
-  ridesDriven                Ride[]         @relation("RideDriver")
-  bookings                   Booking[]      @relation("BookingPassenger")
+  vehicles                   Vehicle[]        @relation("VehicleOwner")
+  verifiedVehicles           Vehicle[]        @relation("VehicleVerifier")
+  driverLicenseVerifier      User?            @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
+  driverLicenseVerifications User[]           @relation("DriverLicenseVerifier")
+  ridesDriven                Ride[]           @relation("RideDriver")
+  bookings                   Booking[]        @relation("BookingPassenger")
+  idempotencyKeys            IdempotencyKey[]
 
   @@map("users")
 }
@@ -425,4 +426,36 @@ model Transaction {
   @@index([rideId])
   @@index([bookingId])
   @@map("transactions")
+}
+
+// The database-arbitrated claim behind the Idempotency-Key middleware
+// (architecture.md §11 "Client-facing idempotency keys"): the `(user_id,
+// key)` UNIQUE constraint is what makes two concurrent requests with the
+// same key unable to both win — claimed via `createMany({ skipDuplicates:
+// true })`, never a read-then-write.
+//
+// `responseStatus`/`responseBody` start null (still running) and are filled
+// in once, after the handler produces a response — a request with the same
+// key and the same `requestHash` while they are still null is IN_PROGRESS;
+// once filled, it is a replay. A different `requestHash` under the same key
+// is a CONFLICT regardless of either field.
+model IdempotencyKey {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  key    String
+
+  // sha256(method:path:JSON(body)) — never the raw body itself, so this
+  // column stays a fixed, non-sensitive size regardless of request payload.
+  requestHash String @map("request_hash")
+
+  responseStatus Int?  @map("response_status")
+  responseBody   Json? @map("response_body")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("idempotency_keys")
 }
