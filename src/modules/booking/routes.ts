@@ -16,4 +16,13 @@ router.get(
   bookingController.getBooking,
 );
 
+// Cancelling is the PASSENGER's alone (the ride's driver may view a booking but not
+// cancel it), so a non-passenger gets the same 404 as an unknown id.
+router.post(
+  '/:id/cancel',
+  authenticate,
+  validateParams(bookingIdParamsSchema),
+  bookingController.cancelBooking,
+);
+
 export default router;

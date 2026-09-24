@@ -205,3 +205,83 @@ export async function getBooking(userId: string, bookingId: string): Promise<Boo
 
   return toBookingDto(booking);
 }
+
+// Cancel a booking and hand its seats back — ATOMICALLY: the status change and
+// the seat release are one transaction, so a booking can never be cancelled with
+// its seats still held (a leaked seat), nor its seats released while it stays
+// live (an oversold ride).
+//
+//  1. Ownership. Only the passenger who made the booking may cancel it. Anyone
+//     else — including the ride's driver, who may VIEW it — gets 404, never 403:
+//     "exists but isn't yours" must be indistinguishable from "doesn't exist".
+//     This read is advisory (it also supplies the booking's immutable `seats` and
+//     `rideId`); the write below carries the passenger id in its own WHERE, so
+//     ownership is enforced there too.
+//  2. In one transaction: the conditional transition (PENDING_PAYMENT or
+//     CONFIRMED -> CANCELLED), and only if it applied, the seat release. The
+//     release runs ONLY when this call won the transition, so a booking that is
+//     already terminal is a no-op — its seats are never released twice, however
+//     many cancels race.
+//  3. A lost transition is a RESULT VARIANT, not a throw. The one deliberate
+//     throw inside the transaction is a failed release: that would mean the ride
+//     could not take the seats back (an invariant violation), and here the writes
+//     must NOT survive — throwing rolls the cancellation back with it, so the
+//     booking is never left cancelled with its seats leaked.
+//
+// No external call is made: refunds and forfeiture of the prepayment are not part
+// of this step, and nothing is sent to a payment provider.
+export async function cancelBooking(passengerId: string, bookingId: string): Promise<BookingDto> {
+  const booking = await bookingRepository.findById(bookingId);
+
+  if (!booking || booking.passengerId !== passengerId) {
+    throw bookingNotFound();
+  }
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const cancelled = await bookingRepository.cancel(tx, bookingId, passengerId);
+
+    if (!cancelled) {
+      return { kind: 'not_cancelled' } as const;
+    }
+
+    const released = await rideService.releaseSeats(tx, booking.rideId, booking.seats);
+
+    if (!released) {
+      throw new Error(`Seat release failed for booking ${bookingId}; cancellation rolled back.`);
+    }
+
+    return { kind: 'cancelled' } as const;
+  });
+
+  if (outcome.kind === 'not_cancelled') {
+    // Only now, to choose the error: someone else already cancelled it, or it is
+    // in a state that cannot be cancelled. The transition above is what decided.
+    const current = await bookingRepository.findById(bookingId);
+
+    if (!current) {
+      throw bookingNotFound();
+    }
+
+    if (current.status === 'CANCELLED') {
+      throw new AppError({
+        statusCode: 409,
+        code: 'BOOKING_ALREADY_CANCELLED',
+        message: 'This booking has already been cancelled.',
+      });
+    }
+
+    throw new AppError({
+      statusCode: 409,
+      code: 'BOOKING_NOT_CANCELLABLE',
+      message: 'This booking can no longer be cancelled.',
+    });
+  }
+
+  const cancelledBooking = await bookingRepository.findById(bookingId);
+
+  if (!cancelledBooking) {
+    throw bookingNotFound();
+  }
+
+  return toBookingDto(cancelledBooking);
+}

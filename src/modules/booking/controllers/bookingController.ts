@@ -18,3 +18,9 @@ export async function getBooking(req: Request, res: Response): Promise<void> {
   const booking = await bookingService.getBooking(req.user!.id, id);
   sendSuccess(res, booking);
 }
+
+export async function cancelBooking(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as unknown as BookingIdParams;
+  const booking = await bookingService.cancelBooking(req.user!.id, id);
+  sendSuccess(res, booking);
+}
