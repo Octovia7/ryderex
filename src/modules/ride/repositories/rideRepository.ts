@@ -167,12 +167,17 @@ export function findStatusById(id: string) {
 // Conditional UPDATE: the WHERE enumerates every legal source state, so the
 // guard and the write are one statement. `count === 0` means the ride was
 // not in one of them (someone else moved it first) and nothing was written.
+//
+// Takes a client (the base client, or a transaction client) so the webhook's
+// payment resolution can run this in the SAME transaction as its Payment/
+// Transaction rows — the same reason reserveSeats/releaseSeats below take one.
 export async function transitionStatus(
+  client: Pick<typeof prisma, 'ride'>,
   id: string,
   from: RideStatus[],
   to: RideStatus,
 ): Promise<boolean> {
-  const result = await prisma.ride.updateMany({
+  const result = await client.ride.updateMany({
     where: { id, status: { in: from } },
     data: { status: to },
   });

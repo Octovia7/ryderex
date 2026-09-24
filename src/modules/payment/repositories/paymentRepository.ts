@@ -118,11 +118,60 @@ function toTransactionRecord(row: {
 }
 
 // A business record always starts PENDING (the column default) — resolved
-// later by the webhook, which does not exist yet (a later step).
+// below by the webhook.
 export async function createTransaction(
   client: Client,
   data: CreateTransactionData,
 ): Promise<TransactionRecord> {
   const transaction = await client.transaction.create({ data, select: TRANSACTION_SELECT });
   return toTransactionRecord(transaction);
+}
+
+// The webhook's lookup key (architecture.md §11: "payments.provider_order_id
+// is UNIQUE, so lookup is unambiguous"). A plain read — the conditional
+// UPDATE below is what actually decides whether this call gets to resolve
+// the row; this only tells the caller whether one exists at all, and if so,
+// whether it is still CREATED.
+export async function findByProviderOrderId(
+  client: Client,
+  providerOrderId: string,
+): Promise<PaymentRecord | null> {
+  const payment = await client.payment.findUnique({
+    where: { providerOrderId },
+    select: PAYMENT_SELECT,
+  });
+  return payment ? toPaymentRecord(payment) : null;
+}
+
+// Conditional UPDATE: resolves a Payment ONLY from CREATED (architecture.md
+// §11's first layer of webhook idempotency). `count === 0` means a
+// concurrent or duplicate delivery already resolved it first — nothing was
+// overwritten, however many deliveries race.
+export async function resolvePayment(
+  client: Client,
+  providerOrderId: string,
+  status: 'SUCCESS' | 'FAILED',
+  providerPaymentId: string,
+): Promise<boolean> {
+  const result = await client.payment.updateMany({
+    where: { providerOrderId, status: 'CREATED' },
+    data: { status, providerPaymentId },
+  });
+  return result.count === 1;
+}
+
+// The Transaction's own conditional UPDATE — architecture.md §11's third
+// layer ("every downstream entity transition is itself a conditional
+// update"), applied here too even though the Payment's own guard above
+// already arbitrated the race: defense in depth, not a second arbiter.
+export async function resolveTransaction(
+  client: Client,
+  paymentId: string,
+  status: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  const result = await client.transaction.updateMany({
+    where: { paymentId, status: 'PENDING' },
+    data: { status },
+  });
+  return result.count === 1;
 }

@@ -1,4 +1,5 @@
 import { prisma } from '../../../infrastructure/database/prismaClient';
+import { bookingExpiryQueue } from '../../../infrastructure/queue';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
 
@@ -47,4 +48,18 @@ export async function processBookingExpiry(bookingId: string): Promise<void> {
       throw new Error(`Seat release failed for expiring booking ${bookingId}; expiry rolled back.`);
     }
   });
+}
+
+// Removes a booking's scheduled seat-hold expiry job, called after any
+// terminal transition reached some other way (webhook confirm/fail,
+// passenger cancel) — so the delayed job never fires pointlessly. This
+// changes no behaviour: `expireIfPending`'s guard already makes the job a
+// safe no-op against a booking that has moved on, jobId dedupe or not.
+// `jobId = bookingId` (the same key it was scheduled with) is what makes it
+// removable by id at all (steps.md decision log, 2026-08-13).
+//
+// An external call (BullMQ/Redis), so callers must invoke this only AFTER
+// their own transaction has committed — never from inside one.
+export async function cancelScheduledBookingExpiry(bookingId: string): Promise<void> {
+  await bookingExpiryQueue.remove(bookingId);
 }

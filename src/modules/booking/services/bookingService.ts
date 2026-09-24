@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Prisma } from '../../../generated/prisma/client';
 import type { BookingStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import type { Coordinates } from '../../../infrastructure/maps';
@@ -8,6 +9,7 @@ import { AppError } from '../../../shared/AppError';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
+import { cancelScheduledBookingExpiry } from './bookingExpiryService';
 import type { CreateBookingInput } from '../schemas/createBooking.schema';
 
 // The passenger pays this share of the booking's total fare up front.
@@ -309,5 +311,54 @@ export async function cancelBooking(passengerId: string, bookingId: string): Pro
     throw bookingNotFound();
   }
 
+  // Purely an efficiency cleanup (steps.md decision log, 2026-08-13): the
+  // scheduled seat-hold expiry job is already safely idempotent either way
+  // (expireIfPending only ever fires from PENDING_PAYMENT), so leaving it
+  // scheduled would change nothing — this just avoids it firing pointlessly
+  // against an already-CANCELLED booking. Never fatal: a transient Redis
+  // failure here must not undo a cancellation that already committed.
+  await cancelScheduledBookingExpiry(bookingId).catch((error) => {
+    console.error(`[booking] failed to cancel the scheduled expiry job for ${bookingId}`, error);
+  });
+
   return toBookingDto(cancelledBooking);
+}
+
+// Called only from the payment webhook, inside its one transaction spanning
+// the Payment/Transaction resolution and this entity transition
+// (architecture.md §11). PENDING_PAYMENT is the only legal source state — a
+// booking reaches every other state through its own actions (passenger
+// cancel, TTL expiry), never through a payment result arriving twice.
+//
+// On FAILED, the seat hold must be released — through the ride-service
+// boundary, exactly like cancelBooking and the expiry job — but only if this
+// call actually won the transition: a booking already moved on (expired,
+// cancelled, or resolved by an earlier duplicate delivery) must not have its
+// seats released a second time.
+export async function resolvePaymentOutcome(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  outcome: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  const booking = await bookingRepository.findRideAndSeats(tx, bookingId);
+
+  if (!booking) {
+    // Should not happen: the Payment row's own bookingId always references a
+    // real booking (recordOrder wrote them together). Nothing to apply.
+    return false;
+  }
+
+  const applied = await bookingRepository.confirmPayment(tx, bookingId, outcome);
+
+  if (applied && outcome === 'FAILED') {
+    const released = await rideService.releaseSeats(tx, booking.rideId, booking.seats);
+
+    if (!released) {
+      throw new Error(
+        `Seat release failed for booking ${bookingId} on payment failure; webhook rolled back.`,
+      );
+    }
+  }
+
+  return applied;
 }

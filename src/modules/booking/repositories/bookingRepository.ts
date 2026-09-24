@@ -104,3 +104,34 @@ export async function expireIfPending(client: Client, id: string): Promise<boole
   });
   return result.count === 1;
 }
+
+// Webhook-driven resolution: a conditional UPDATE valid ONLY from
+// PENDING_PAYMENT, same as expiry — a CONFIRMED booking must never be moved
+// by a (duplicate or late) webhook delivery. `outcome` decides the target
+// status directly; the seat release on FAILED is the caller's job (it needs
+// the ride-service boundary, which this repository never crosses).
+//
+// Takes a client so the webhook can run this in the SAME transaction as
+// resolving the Payment/Transaction rows (architecture.md §11's "ONE
+// TRANSACTION" webhook-resolution box). Callers branch on the returned
+// boolean, never on a prior read.
+export async function confirmPayment(
+  client: Client,
+  id: string,
+  outcome: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  const to = outcome === 'SUCCESS' ? 'CONFIRMED' : 'PAYMENT_FAILED';
+  const result = await client.booking.updateMany({
+    where: { id, status: 'PENDING_PAYMENT' },
+    data: { status: to },
+  });
+  return result.count === 1;
+}
+
+// The immutable pair a seat release needs (rideId, seats) — nothing else.
+// Read inside the same transaction as confirmPayment above, not as a
+// pre-transaction advisory read like cancelBooking's: both values are fixed
+// at booking creation and never change, so there is no race to lose.
+export function findRideAndSeats(client: Client, id: string) {
+  return client.booking.findUnique({ where: { id }, select: { rideId: true, seats: true } });
+}

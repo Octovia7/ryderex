@@ -9,6 +9,7 @@ import { requestId } from './middleware/requestId';
 import adminRoutes from './modules/admin/routes';
 import authRoutes from './modules/auth/routes';
 import bookingRoutes from './modules/booking/routes';
+import webhookRoutes from './modules/payment/routes';
 import rideRoutes from './modules/ride/routes';
 import userRoutes from './modules/user/routes';
 import vehicleRoutes from './modules/vehicle/routes';
@@ -22,6 +23,13 @@ export function createApp(): Application {
   app.use(requestId);
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins }));
+
+  // Mounted BEFORE the shared body parsers below: this route needs the exact
+  // raw bytes Razorpay signed, and its own `express.raw()` (see
+  // modules/payment/routes.ts) must run before express.json() would consume
+  // the body into a re-serializable object.
+  app.use('/api/v1/webhooks', webhookRoutes);
+
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

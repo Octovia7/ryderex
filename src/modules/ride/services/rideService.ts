@@ -170,7 +170,7 @@ async function transitionOwnRide(
 ): Promise<RideDto> {
   await assertOwnRide(driverId, rideId);
 
-  const transitioned = await rideRepository.transitionStatus(rideId, from, to);
+  const transitioned = await rideRepository.transitionStatus(prisma, rideId, from, to);
 
   if (!transitioned) {
     throw new AppError({
@@ -229,4 +229,19 @@ export function reserveSeats(tx: Prisma.TransactionClient, rideId: string, seats
 
 export function releaseSeats(tx: Prisma.TransactionClient, rideId: string, seats: number) {
   return rideRepository.releaseSeats(tx, rideId, seats);
+}
+
+// Called only from the payment webhook (architecture.md §11: "ride/booking
+// transition by transaction type", inside the same transaction as resolving
+// the Payment/Transaction rows). `PENDING_PAYMENT` is the only legal source
+// state for a driver's posting-fee outcome — a ride reaches every other
+// state through its own owner-scoped actions (start/complete/cancel), never
+// through a payment result.
+export function resolvePostingFeeOutcome(
+  tx: Prisma.TransactionClient,
+  rideId: string,
+  outcome: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  const to = outcome === 'SUCCESS' ? 'OPEN' : 'CANCELLED';
+  return rideRepository.transitionStatus(tx, rideId, ['PENDING_PAYMENT'], to);
 }
