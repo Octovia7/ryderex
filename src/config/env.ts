@@ -89,6 +89,19 @@ const envSchema = z.object({
   // expiry job releases them if payment never completes. 900s (15 minutes) is
   // the documented default.
   BOOKING_PAYMENT_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+
+  // No safe fallback exists for a real payment gateway, same as Cloudinary —
+  // left optional for local development without a Razorpay account;
+  // RazorpayProvider is only ever constructed once both are present, and
+  // StubPaymentProvider (fake order ids, no money moves) is used otherwise.
+  PAYMENT_PROVIDER_KEY: z.string().optional(),
+  PAYMENT_PROVIDER_SECRET: z.string().optional(),
+  // A separate credential from the pair above — Razorpay signs its webhook
+  // deliveries with its own secret, distinct from the account's API key.
+  // Used by both providers' verifyWebhookSignature, since local testing
+  // without a Razorpay account should still exercise genuine HMAC-SHA256
+  // verification, never a stand-in.
+  PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().optional(),
 });
 
 function loadEnv() {
@@ -187,6 +200,11 @@ export const config = {
   },
   booking: {
     paymentTtlSeconds: env.BOOKING_PAYMENT_TTL_SECONDS,
+  },
+  payments: {
+    providerKey: env.PAYMENT_PROVIDER_KEY,
+    providerSecret: env.PAYMENT_PROVIDER_SECRET,
+    webhookSecret: env.PAYMENT_PROVIDER_WEBHOOK_SECRET,
   },
 } as const;
 

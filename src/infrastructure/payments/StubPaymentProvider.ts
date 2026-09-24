@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { config } from '../../config';
 import type {
   CreateOrderParams,
   CreateOrderResult,
@@ -7,6 +8,7 @@ import type {
   RefundResult,
   VerifyPaymentParams,
 } from './PaymentProvider';
+import { verifyHmacSignature } from './webhookSignature';
 
 // A local stand-in with no gateway behind it: order ids are generated
 // locally and no money ever moves. That makes it unsafe as a production
@@ -26,5 +28,13 @@ export class StubPaymentProvider implements PaymentProvider {
 
   refund(_params: RefundParams): Promise<RefundResult> {
     return Promise.reject(new Error('StubPaymentProvider.refund is not implemented.'));
+  }
+
+  // Implemented for real, unlike the two methods above: local testing without
+  // a Razorpay account should still exercise genuine HMAC-SHA256 signature
+  // verification, against the same PAYMENT_PROVIDER_WEBHOOK_SECRET a real
+  // provider would use. Shared with RazorpayProvider so the two can't drift.
+  verifyWebhookSignature(rawBody: string | Buffer, signature: string): boolean {
+    return verifyHmacSignature(config.payments.webhookSecret, rawBody, signature);
   }
 }
