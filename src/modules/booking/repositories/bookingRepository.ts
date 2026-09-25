@@ -135,3 +135,34 @@ export async function confirmPayment(
 export function findRideAndSeats(client: Client, id: string) {
   return client.booking.findUnique({ where: { id }, select: { rideId: true, seats: true } });
 }
+
+// The driver-cancellation cascade's own snapshot of a ride's active
+// bookings — read inside the cascade's transaction, then acted on by
+// gating each one on ITS OWN cancelForCascade return value below, never on
+// this snapshot: a booking a passenger self-cancelled a moment earlier in a
+// separate, already-committed transaction must be skipped entirely, not
+// double-refunded.
+export function findActiveByRideId(client: Client, rideId: string) {
+  return client.booking.findMany({
+    where: { rideId, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
+    select: { id: true, seats: true, status: true, prepaidAmount: true },
+  });
+}
+
+// The cascade's own conditional UPDATE — deliberately separate from the
+// passenger-owned `cancel` above rather than reusing it: this one has no
+// passenger id in its WHERE (the cascade acts on every affected passenger's
+// booking, not one specific passenger's own), so it must never be reachable
+// from the passenger-facing cancel endpoint. Valid from the same two
+// source states as a passenger's own cancel (PENDING_PAYMENT, CONFIRMED).
+//
+// Takes a client so the cascade can run this in the SAME transaction as the
+// ride's own cancellation. Callers branch on the returned boolean, never on
+// the findActiveByRideId snapshot above.
+export async function cancelForCascade(client: Client, id: string): Promise<boolean> {
+  const result = await client.booking.updateMany({
+    where: { id, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
+    data: { status: 'CANCELLED' },
+  });
+  return result.count === 1;
+}

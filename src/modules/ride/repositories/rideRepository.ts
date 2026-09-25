@@ -184,6 +184,20 @@ export async function transitionStatus(
   return result.count === 1;
 }
 
+// The driver-cancellation cascade's own conditional UPDATE — a dedicated
+// function rather than a `transitionStatus` call, since its source states
+// and target never vary: every legal pre-cancellation ride status
+// (PENDING_PAYMENT, OPEN, FULL) to CANCELLED, always. Its only call site is
+// the cascade in rideService.cancelRide, always inside that cascade's own
+// transaction, never standalone.
+export async function cancel(client: Pick<typeof prisma, 'ride'>, id: string): Promise<boolean> {
+  const result = await client.ride.updateMany({
+    where: { id, status: { in: ['PENDING_PAYMENT', 'OPEN', 'FULL'] } },
+    data: { status: 'CANCELLED' },
+  });
+  return result.count === 1;
+}
+
 interface RawReservedSeats {
   farePerSeat: unknown;
   driverId: string;

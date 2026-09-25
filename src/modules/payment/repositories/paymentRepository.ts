@@ -175,3 +175,34 @@ export async function resolveTransaction(
   });
   return result.count === 1;
 }
+
+// The driver-cancellation cascade's lookup for "was the posting commission
+// actually captured?" — a refund is only ever owed against money that
+// genuinely moved. A plain read: whether a refund is then created is the
+// cascade's own policy decision (cancellationPolicyService), not this
+// repository's.
+export async function findSuccessfulByRideId(
+  client: Client,
+  rideId: string,
+): Promise<PaymentRecord | null> {
+  const payment = await client.payment.findFirst({
+    where: { rideId, status: 'SUCCESS' },
+    select: PAYMENT_SELECT,
+  });
+  return payment ? toPaymentRecord(payment) : null;
+}
+
+// The cascade's per-booking counterpart: a CONFIRMED booking's prepayment
+// was necessarily captured (that is what CONFIRMED means), so this exists
+// to find the specific Payment row to refund against, not to ask whether
+// one exists.
+export async function findSuccessfulByBookingId(
+  client: Client,
+  bookingId: string,
+): Promise<PaymentRecord | null> {
+  const payment = await client.payment.findFirst({
+    where: { bookingId, status: 'SUCCESS' },
+    select: PAYMENT_SELECT,
+  });
+  return payment ? toPaymentRecord(payment) : null;
+}

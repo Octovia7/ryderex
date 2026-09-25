@@ -118,3 +118,69 @@ export async function resolvePaymentByOrderId(
     amount: existing.amount,
   };
 }
+
+// Records a refund INTENT (steps.md §12/architecture.md §11: "Refund
+// intents are recorded as PENDING transactions inside that transaction; the
+// actual gateway call happens afterwards as a retryable job" — the actual
+// call is a later step's work, not this one's). Unlike recordOrder above,
+// neither of these creates a new Payment row — a refund references the
+// ORIGINAL captured Payment it refunds against, looked up here so neither
+// ride nor booking module ever needs to reach into paymentRepository
+// directly, only this service (the same module-boundary shape as
+// recordOrder/resolvePaymentByOrderId above).
+//
+// Both take a client so the caller (rideService.cancelRide's cascade) can
+// run them inside its own transaction, alongside the ride/booking
+// cancellation they accompany.
+
+// A ride cancelled before its posting-fee payment ever resolved SUCCESS
+// (still CREATED, e.g. cancelled while PENDING_PAYMENT) has nothing to
+// refund — `null` is a legitimate, non-exceptional outcome here, not an
+// invariant violation. The caller decides whether to call this at all
+// (only when the cancellation policy says `refundAmount > 0`); this only
+// decides whether there is anything captured to refund against.
+export async function recordRefundForRide(
+  client: Parameters<typeof paymentRepository.createTransaction>[0],
+  rideId: string,
+  amount: number,
+): Promise<TransactionRecord | null> {
+  const payment = await paymentRepository.findSuccessfulByRideId(client, rideId);
+
+  if (!payment) {
+    return null;
+  }
+
+  return paymentRepository.createTransaction(client, {
+    paymentId: payment.id,
+    rideId,
+    bookingId: null,
+    type: 'REFUND',
+    amount,
+  });
+}
+
+// Unlike the ride case above, a CONFIRMED booking's prepayment was
+// necessarily captured — CONFIRMED is only ever reached via a successful
+// payment resolution (webhookService, Phase 10 Step 3). A missing
+// successful Payment here is a genuine invariant violation, not a normal
+// outcome, so this throws (rolling back the cascade transaction) rather
+// than returning null.
+export async function recordRefundForBooking(
+  client: Parameters<typeof paymentRepository.createTransaction>[0],
+  bookingId: string,
+  amount: number,
+): Promise<TransactionRecord> {
+  const payment = await paymentRepository.findSuccessfulByBookingId(client, bookingId);
+
+  if (!payment) {
+    throw new Error(`No successful Payment found to refund for booking ${bookingId}.`);
+  }
+
+  return paymentRepository.createTransaction(client, {
+    paymentId: payment.id,
+    rideId: null,
+    bookingId,
+    type: 'REFUND',
+    amount,
+  });
+}

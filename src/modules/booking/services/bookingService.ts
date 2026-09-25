@@ -362,3 +362,80 @@ export async function resolvePaymentOutcome(
 
   return applied;
 }
+
+// Called only from rideService.cancelRide's driver-cancellation cascade,
+// inside its own transaction (steps.md §12): finds every still-active
+// booking on the ride and cancels each one, gating strictly on THAT
+// booking's own cancelForCascade return value — never on the
+// findActiveByRideId snapshot — so a booking a passenger self-cancelled a
+// moment earlier in a separate, already-committed transaction is skipped
+// entirely: never double-refunded, never double-released.
+//
+// A CONFIRMED booking's 10% prepayment is refunded in full (§34: driver
+// cancellation is the one case it is). A PENDING_PAYMENT one gets no
+// refund — nothing was captured — but its scheduled seat-hold expiry job is
+// now pointless; its id is returned so the caller can cancel that job
+// AFTER the transaction commits (an external Redis call, so it can never
+// run from inside this transaction).
+export interface CascadeCancelResult {
+  bookingIdsNeedingExpiryCancel: string[];
+}
+
+export async function cancelActiveBookingsForRide(
+  tx: Prisma.TransactionClient,
+  rideId: string,
+): Promise<CascadeCancelResult> {
+  const activeBookings = await bookingRepository.findActiveByRideId(tx, rideId);
+  const bookingIdsNeedingExpiryCancel: string[] = [];
+
+  for (const booking of activeBookings) {
+    const cancelled = await bookingRepository.cancelForCascade(tx, booking.id);
+
+    if (!cancelled) {
+      // Already moved on (a concurrent passenger self-cancel, most likely) —
+      // skip entirely. Its seats were already released by whichever
+      // transaction actually cancelled it.
+      continue;
+    }
+
+    const released = await rideService.releaseSeats(tx, rideId, booking.seats);
+
+    if (!released) {
+      throw new Error(
+        `Seat release failed for booking ${booking.id} during ride cancellation cascade; rolled back.`,
+      );
+    }
+
+    if (booking.status === 'CONFIRMED') {
+      await paymentRecordService.recordRefundForBooking(
+        tx,
+        booking.id,
+        Number(booking.prepaidAmount),
+      );
+    } else {
+      bookingIdsNeedingExpiryCancel.push(booking.id);
+    }
+  }
+
+  return { bookingIdsNeedingExpiryCancel };
+}
+
+// A thin, non-fatal pass-through so rideService.cancelRide's cascade only
+// ever needs to import this one file from the booking module (never
+// bookingExpiryService directly) — the same one-file cross-module surface
+// every other module boundary in this codebase already keeps. Called AFTER
+// the cascade's transaction commits, for every id cancelActiveBookingsForRide
+// returned above; each job is cancelled independently so one Redis hiccup
+// never affects the others.
+export async function cancelScheduledExpiryJobs(bookingIds: string[]): Promise<void> {
+  await Promise.all(
+    bookingIds.map((bookingId) =>
+      cancelScheduledBookingExpiry(bookingId).catch((error) => {
+        console.error(
+          `[booking] failed to cancel the scheduled expiry job for ${bookingId}`,
+          error,
+        );
+      }),
+    ),
+  );
+}

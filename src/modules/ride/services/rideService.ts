@@ -6,11 +6,13 @@ import { mapProvider } from '../../../infrastructure/maps';
 import type { Coordinates } from '../../../infrastructure/maps';
 import { paymentProvider, providerName } from '../../../infrastructure/payments';
 import { AppError } from '../../../shared/AppError';
+import * as bookingService from '../../booking/services/bookingService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as userService from '../../user/services/userService';
 import * as rideRepository from '../repositories/rideRepository';
 import type { RideRecord } from '../repositories/rideRepository';
 import type { CreateRideInput } from '../schemas/createRide.schema';
+import { calculateDriverCancellationRefund } from './cancellationPolicyService';
 import { calculatePostingCommission } from './commissionService';
 import { calculateFare } from './fareService';
 import { assertVehicleEligibleForRide } from './vehicleEligibilityService';
@@ -191,17 +193,80 @@ export function completeRide(driverId: string, rideId: string): Promise<RideDto>
   return transitionOwnRide(driverId, rideId, ['STARTED'], 'COMPLETED', 'completed');
 }
 
-// Only the ride's own status flips here. Cancelling its bookings, releasing
-// seats and refunding money is the cancellation cascade — a later phase —
-// and none of those records exist yet.
-export function cancelRide(driverId: string, rideId: string): Promise<RideDto> {
-  return transitionOwnRide(
-    driverId,
-    rideId,
-    ['PENDING_PAYMENT', 'OPEN', 'FULL'],
-    'CANCELLED',
-    'cancelled',
+// The driver-cancellation cascade (steps.md §12/architecture.md §12): unlike
+// start/complete, this does not go through transitionOwnRide — cancelling a
+// ride cascades into every active booking on it and, possibly, a refund of
+// the driver's own posting commission, none of which the generic
+// owner-scoped transition helper does.
+//
+//  1. Ownership + the fields the refund policy needs (postingCommissionAmount,
+//     departureTime) in one read — "exists but isn't yours" and "doesn't
+//     exist" stay indistinguishable (404, never 403).
+//  2. The refund policy is computed here, BEFORE opening a transaction: it is
+//     pure arithmetic (architecture.md §12), so there is nothing to gain by
+//     deferring it, and it must be known either way before the transaction
+//     decides whether to act on it.
+//  3. ONE transaction: conditionally cancel the ride (rideRepository.cancel);
+//     if that applied, cascade into every active booking on it
+//     (bookingService.cancelActiveBookingsForRide — the booking module still
+//     never reached into from rideRepository, only through its own service);
+//     then, only if the policy says a driver refund is owed, record one
+//     (paymentRecordService.recordRefundForRide — itself a no-op if the
+//     commission was never actually captured, e.g. a ride cancelled while
+//     still PENDING_PAYMENT).
+//  4. A lost cancellation is a RESULT VARIANT, not a throw — the same
+//     "throwing inside a transaction rolls it back; return a variant, throw
+//     after" discipline used everywhere else in this codebase.
+//  5. Only AFTER commit: cancel the scheduled BullMQ expiry job for every
+//     booking that was still PENDING_PAYMENT (an external Redis call, so it
+//     can never sit inside the transaction above) — non-fatal, and purely an
+//     efficiency cleanup, exactly like cancelBooking's own equivalent step.
+//
+// The actual refund gateway call is deliberately NOT made here: external
+// calls never belong inside a transaction, and processing the PENDING
+// REFUND transactions this creates is separate work.
+export async function cancelRide(driverId: string, rideId: string): Promise<RideDto> {
+  const ride = await rideRepository.findById(rideId);
+
+  if (!ride || ride.driverId !== driverId) {
+    throw rideNotFound();
+  }
+
+  const policy = calculateDriverCancellationRefund(
+    ride.postingCommissionAmount,
+    ride.departureTime,
   );
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const cancelled = await rideRepository.cancel(tx, rideId);
+
+    if (!cancelled) {
+      return { kind: 'not_cancelled' } as const;
+    }
+
+    const { bookingIdsNeedingExpiryCancel } = await bookingService.cancelActiveBookingsForRide(
+      tx,
+      rideId,
+    );
+
+    if (policy.refundAmount > 0) {
+      await paymentRecordService.recordRefundForRide(tx, rideId, policy.refundAmount);
+    }
+
+    return { kind: 'cancelled', bookingIdsNeedingExpiryCancel } as const;
+  });
+
+  if (outcome.kind === 'not_cancelled') {
+    throw new AppError({
+      statusCode: 409,
+      code: 'INVALID_RIDE_STATE',
+      message: 'This ride cannot be cancelled from its current state.',
+    });
+  }
+
+  await bookingService.cancelScheduledExpiryJobs(outcome.bookingIdsNeedingExpiryCancel);
+
+  return getRide(rideId);
 }
 
 // What another module (booking) may know about a ride: who drives it and
