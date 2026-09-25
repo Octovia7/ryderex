@@ -111,7 +111,7 @@ export async function createBooking(
   rideId: string,
   input: CreateBookingInput,
 ): Promise<BookingDto> {
-  const ride = await rideService.getRideForBooking(rideId);
+  const ride = await rideService.getRideForBooking(rideId, prisma);
 
   if (ride.driverId === passengerId) {
     throw new AppError({
@@ -224,7 +224,7 @@ export async function getBooking(userId: string, bookingId: string): Promise<Boo
   }
 
   if (booking.passengerId !== userId) {
-    const ride = await rideService.getRideForBooking(booking.rideId);
+    const ride = await rideService.getRideForBooking(booking.rideId, prisma);
 
     if (ride.driverId !== userId) {
       throw bookingNotFound();
@@ -245,16 +245,24 @@ export async function getBooking(userId: string, bookingId: string): Promise<Boo
 //     This read is advisory (it also supplies the booking's immutable `seats` and
 //     `rideId`); the write below carries the passenger id in its own WHERE, so
 //     ownership is enforced there too.
-//  2. In one transaction: the conditional transition (PENDING_PAYMENT or
-//     CONFIRMED -> CANCELLED), and only if it applied, the seat release. The
-//     release runs ONLY when this call won the transition, so a booking that is
-//     already terminal is a no-op — its seats are never released twice, however
-//     many cancels race.
-//  3. A lost transition is a RESULT VARIANT, not a throw. The one deliberate
-//     throw inside the transaction is a failed release: that would mean the ride
-//     could not take the seats back (an invariant violation), and here the writes
-//     must NOT survive — throwing rolls the cancellation back with it, so the
-//     booking is never left cancelled with its seats leaked.
+//  2. In one transaction: FIRST, the ride's status is re-read — HERE, inside
+//     this transaction, never before it (architecture.md's "Cancellation
+//     guard": reading it earlier would leave a TOCTOU window in which the
+//     driver starts the ride between check and cancel, letting a passenger
+//     dodge the final 90% payment collected once a ride is STARTED). A
+//     booking on a ride that has reached STARTED or COMPLETED can no longer
+//     be self-cancelled — rejected the same way a lost transition is (a
+//     RESULT VARIANT, without even attempting the write below). Otherwise:
+//     the conditional transition (PENDING_PAYMENT or CONFIRMED -> CANCELLED),
+//     and only if it applied, the seat release. The release runs ONLY when
+//     this call won the transition, so a booking that is already terminal is
+//     a no-op — its seats are never released twice, however many cancels race.
+//  3. A lost transition (including the ride-started guard above) is a RESULT
+//     VARIANT, not a throw. The one deliberate throw inside the transaction
+//     is a failed release: that would mean the ride could not take the seats
+//     back (an invariant violation), and here the writes must NOT survive —
+//     throwing rolls the cancellation back with it, so the booking is never
+//     left cancelled with its seats leaked.
 //
 // No external call is made: refunds and forfeiture of the prepayment are not part
 // of this step, and nothing is sent to a payment provider.
@@ -266,6 +274,12 @@ export async function cancelBooking(passengerId: string, bookingId: string): Pro
   }
 
   const outcome = await prisma.$transaction(async (tx) => {
+    const ride = await rideService.getRideForBooking(booking.rideId, tx);
+
+    if (ride.status === 'STARTED' || ride.status === 'COMPLETED') {
+      return { kind: 'not_cancelled' } as const;
+    }
+
     const cancelled = await bookingRepository.cancel(tx, bookingId, passengerId);
 
     if (!cancelled) {

@@ -154,7 +154,7 @@ export async function getRide(rideId: string): Promise<RideDto> {
 // caller, so a non-owner always gets 404 — never 403 — and a ride's
 // existence is never leaked to other drivers.
 async function assertOwnRide(driverId: string, rideId: string): Promise<void> {
-  const ride = await rideRepository.findStatusById(rideId);
+  const ride = await rideRepository.findStatusById(prisma, rideId);
 
   if (!ride || ride.driverId !== driverId) {
     throw rideNotFound();
@@ -288,10 +288,16 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
 // What another module (booking) may know about a ride: who drives it and
 // whether it is bookable. Deliberately not the whole ride — nothing else about
 // it is that module's business, and no repository crosses the module boundary.
+//
+// Takes a client so booking module callers running inside their own
+// transaction (cancelBooking's passenger-cancellation guard) can pass their
+// `tx` through and read the ride's CURRENT committed status from inside
+// that same transaction, rather than a plain pre-transaction read.
 export async function getRideForBooking(
   rideId: string,
+  client: Pick<typeof prisma, 'ride'>,
 ): Promise<{ id: string; driverId: string; status: RideStatus }> {
-  const ride = await rideRepository.findStatusById(rideId);
+  const ride = await rideRepository.findStatusById(client, rideId);
 
   if (!ride) {
     throw rideNotFound();

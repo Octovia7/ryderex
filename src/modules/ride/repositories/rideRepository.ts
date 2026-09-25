@@ -157,8 +157,14 @@ export async function findById(id: string): Promise<RideRecord | null> {
 }
 
 // No coordinates needed, so the ordinary Prisma client is fine here.
-export function findStatusById(id: string) {
-  return prisma.ride.findUnique({
+//
+// Takes a client (the base client, or a transaction client) so
+// bookingService.cancelBooking's passenger-cancellation guard can run this
+// read INSIDE its own transaction (architecture.md's "Cancellation guard":
+// re-read the ride's status inside the transaction, never before it, to
+// avoid a TOCTOU window against a concurrently-starting ride).
+export function findStatusById(client: Pick<typeof prisma, 'ride'>, id: string) {
+  return client.ride.findUnique({
     where: { id },
     select: { id: true, driverId: true, status: true },
   });
