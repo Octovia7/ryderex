@@ -206,3 +206,45 @@ export async function findSuccessfulByBookingId(
   });
   return payment ? toPaymentRecord(payment) : null;
 }
+
+// refundService's lookup for the ORIGINAL captured Payment a refund
+// Transaction refunds against — its own `paymentId` already points there
+// directly (set once, at creation, by recordRefundForRide/recordRefundForBooking),
+// so this is a plain by-id read, never another ride/booking-scoped search.
+export async function findById(client: Client, id: string): Promise<PaymentRecord | null> {
+  const payment = await client.payment.findUnique({ where: { id }, select: PAYMENT_SELECT });
+  return payment ? toPaymentRecord(payment) : null;
+}
+
+// refundService's own lookup, by the Transaction's own id — the id a BullMQ
+// refund job carries as its payload, since a refund Transaction (unlike a
+// Payment) has no separate gateway-order key to look up by.
+export async function findTransactionById(
+  client: Client,
+  id: string,
+): Promise<TransactionRecord | null> {
+  const transaction = await client.transaction.findUnique({
+    where: { id },
+    select: TRANSACTION_SELECT,
+  });
+  return transaction ? toTransactionRecord(transaction) : null;
+}
+
+// refundService's own conditional UPDATE — the same idempotency pattern as
+// resolveTransaction above, but keyed by the Transaction's own id rather
+// than its paymentId: a refund Transaction shares its paymentId with the
+// ORIGINAL (already-resolved) transaction it refunds, so resolving "by
+// paymentId + PENDING" would be correct only by the accidental fact that a
+// payment has at most one PENDING transaction at a time. Resolving by the
+// refund's own id is explicit instead of relying on that.
+export async function resolveTransactionById(
+  client: Client,
+  id: string,
+  status: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  const result = await client.transaction.updateMany({
+    where: { id, status: 'PENDING' },
+    data: { status },
+  });
+  return result.count === 1;
+}

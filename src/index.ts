@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { config } from './config';
 import { createBookingExpiryWorker } from './modules/booking/workers/bookingExpiryWorker';
+import { createRefundWorker } from './modules/payment/workers/refundWorker';
 
 const app = createApp();
 
@@ -8,6 +9,7 @@ const app = createApp();
 // could pick up any job — this doesn't break statelessness), started
 // alongside the HTTP server and closed alongside it below.
 const bookingExpiryWorker = createBookingExpiryWorker();
+const refundWorker = createRefundWorker();
 
 const server = app.listen(config.port, () => {
   console.log(`[saathiride] listening on port ${config.port} (${config.nodeEnv})`);
@@ -22,12 +24,14 @@ function shutdown(signal: NodeJS.Signals): void {
       process.exit(1);
     }
 
-    bookingExpiryWorker
-      .close()
-      .catch((workerError: unknown) => {
+    Promise.all([
+      bookingExpiryWorker.close().catch((workerError: unknown) => {
         console.error('[saathiride] error closing the booking-expiry worker', workerError);
-      })
-      .finally(() => process.exit(0));
+      }),
+      refundWorker.close().catch((workerError: unknown) => {
+        console.error('[saathiride] error closing the refund worker', workerError);
+      }),
+    ]).finally(() => process.exit(0));
   });
 }
 

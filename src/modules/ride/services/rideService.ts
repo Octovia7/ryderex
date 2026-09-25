@@ -5,6 +5,7 @@ import { prisma } from '../../../infrastructure/database/prismaClient';
 import { mapProvider } from '../../../infrastructure/maps';
 import type { Coordinates } from '../../../infrastructure/maps';
 import { paymentProvider, providerName } from '../../../infrastructure/payments';
+import { scheduleRefund } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as bookingService from '../../booking/services/bookingService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
@@ -218,13 +219,18 @@ export function completeRide(driverId: string, rideId: string): Promise<RideDto>
 //     "throwing inside a transaction rolls it back; return a variant, throw
 //     after" discipline used everywhere else in this codebase.
 //  5. Only AFTER commit: cancel the scheduled BullMQ expiry job for every
-//     booking that was still PENDING_PAYMENT (an external Redis call, so it
-//     can never sit inside the transaction above) — non-fatal, and purely an
-//     efficiency cleanup, exactly like cancelBooking's own equivalent step.
+//     booking that was still PENDING_PAYMENT (non-fatal — purely an
+//     efficiency cleanup, exactly like cancelBooking's own equivalent step),
+//     and schedule the actual refund gateway call for every PENDING REFUND
+//     transaction just created (steps.md §12: "the actual gateway call
+//     happens afterwards as a retryable job"). Neither may run from inside
+//     the transaction above — both are external Redis calls.
 //
-// The actual refund gateway call is deliberately NOT made here: external
-// calls never belong inside a transaction, and processing the PENDING
-// REFUND transactions this creates is separate work.
+// Scheduling a refund job is left unguarded (no catch), the same as
+// scheduleBookingExpiry in bookingService.createBooking: unlike cancelling
+// an already-harmless job, a refund that never gets enqueued has no other
+// path to ever run, so a failure here should surface as a real error rather
+// than be silently swallowed.
 export async function cancelRide(driverId: string, rideId: string): Promise<RideDto> {
   const ride = await rideRepository.findById(rideId);
 
@@ -244,16 +250,22 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
       return { kind: 'not_cancelled' } as const;
     }
 
-    const { bookingIdsNeedingExpiryCancel } = await bookingService.cancelActiveBookingsForRide(
-      tx,
-      rideId,
-    );
+    const { bookingIdsNeedingExpiryCancel, refundTransactionIds } =
+      await bookingService.cancelActiveBookingsForRide(tx, rideId);
 
     if (policy.refundAmount > 0) {
-      await paymentRecordService.recordRefundForRide(tx, rideId, policy.refundAmount);
+      const driverRefund = await paymentRecordService.recordRefundForRide(
+        tx,
+        rideId,
+        policy.refundAmount,
+      );
+
+      if (driverRefund) {
+        refundTransactionIds.push(driverRefund.id);
+      }
     }
 
-    return { kind: 'cancelled', bookingIdsNeedingExpiryCancel } as const;
+    return { kind: 'cancelled', bookingIdsNeedingExpiryCancel, refundTransactionIds } as const;
   });
 
   if (outcome.kind === 'not_cancelled') {
@@ -265,6 +277,10 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
   }
 
   await bookingService.cancelScheduledExpiryJobs(outcome.bookingIdsNeedingExpiryCancel);
+
+  for (const transactionId of outcome.refundTransactionIds) {
+    await scheduleRefund(transactionId);
+  }
 
   return getRide(rideId);
 }

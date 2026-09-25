@@ -372,13 +372,17 @@ export async function resolvePaymentOutcome(
 // entirely: never double-refunded, never double-released.
 //
 // A CONFIRMED booking's 10% prepayment is refunded in full (§34: driver
-// cancellation is the one case it is). A PENDING_PAYMENT one gets no
-// refund — nothing was captured — but its scheduled seat-hold expiry job is
-// now pointless; its id is returned so the caller can cancel that job
-// AFTER the transaction commits (an external Redis call, so it can never
-// run from inside this transaction).
+// cancellation is the one case it is) — recorded as a PENDING REFUND
+// transaction here; its id is collected so the caller can schedule the
+// actual gateway call (a later, separate, external-call step, per
+// architecture.md's "external calls never belong inside a transaction")
+// AFTER this transaction commits. A PENDING_PAYMENT one gets no refund —
+// nothing was captured — but its scheduled seat-hold expiry job is now
+// pointless; its id is returned so the caller can cancel that job, also
+// after commit.
 export interface CascadeCancelResult {
   bookingIdsNeedingExpiryCancel: string[];
+  refundTransactionIds: string[];
 }
 
 export async function cancelActiveBookingsForRide(
@@ -387,6 +391,7 @@ export async function cancelActiveBookingsForRide(
 ): Promise<CascadeCancelResult> {
   const activeBookings = await bookingRepository.findActiveByRideId(tx, rideId);
   const bookingIdsNeedingExpiryCancel: string[] = [];
+  const refundTransactionIds: string[] = [];
 
   for (const booking of activeBookings) {
     const cancelled = await bookingRepository.cancelForCascade(tx, booking.id);
@@ -407,17 +412,18 @@ export async function cancelActiveBookingsForRide(
     }
 
     if (booking.status === 'CONFIRMED') {
-      await paymentRecordService.recordRefundForBooking(
+      const refund = await paymentRecordService.recordRefundForBooking(
         tx,
         booking.id,
         Number(booking.prepaidAmount),
       );
+      refundTransactionIds.push(refund.id);
     } else {
       bookingIdsNeedingExpiryCancel.push(booking.id);
     }
   }
 
-  return { bookingIdsNeedingExpiryCancel };
+  return { bookingIdsNeedingExpiryCancel, refundTransactionIds };
 }
 
 // A thin, non-fatal pass-through so rideService.cancelRide's cascade only
