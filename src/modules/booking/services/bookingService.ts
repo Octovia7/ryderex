@@ -6,6 +6,7 @@ import type { Coordinates } from '../../../infrastructure/maps';
 import { paymentProvider, providerName } from '../../../infrastructure/payments';
 import { scheduleBookingExpiry } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
+import * as conversationService from '../../chat/services/conversationService';
 import * as notificationService from '../../notification/services/notificationService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as rideService from '../../ride/services/rideService';
@@ -194,6 +195,14 @@ export async function createBooking(
   // exists at this point regardless of what the payment call below does, so
   // this is the right moment to notify: a passenger genuinely booked a seat.
   await notificationService.notifyRideBooked(ride.driverId, input.seats);
+
+  // Lazy conversation creation (steps.md §14) — the first time this
+  // passenger has a reason to talk to this ride's driver. Idempotent via the
+  // (rideId, passengerId) unique constraint, so a second booking by the same
+  // passenger on the same ride reuses the existing conversation. Not gated
+  // on payment status, same reasoning as the notification above: either
+  // party may reasonably want to talk before payment confirms.
+  await conversationService.getOrCreateConversationForRide(rideId, ride.driverId, passengerId);
 
   // The order is for the amount the booking itself recorded.
   const order = await paymentProvider.createOrder({

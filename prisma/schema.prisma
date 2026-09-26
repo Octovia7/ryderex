@@ -203,6 +203,9 @@ model User {
   idempotencyKeys            IdempotencyKey[]
   devices                    UserDevice[]
   notifications              Notification[]
+  conversationsAsDriver      Conversation[]   @relation("ConversationDriver")
+  conversationsAsPassenger   Conversation[]   @relation("ConversationPassenger")
+  messagesSent               Message[]
 
   @@map("users")
 }
@@ -328,8 +331,9 @@ model Ride {
   vehicle  Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   bookings Booking[]
 
-  payments     Payment[]
-  transactions Transaction[]
+  payments      Payment[]
+  transactions  Transaction[]
+  conversations Conversation[]
 
   @@index([driverId])
   @@index([vehicleId])
@@ -552,4 +556,57 @@ model Notification {
 
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// One conversation per (ride, passenger) pair, never one shared room per
+// ride (steps.md §14: the driver talks to each passenger separately).
+// Created lazily by bookingService.createBooking, the first time a given
+// passenger has a reason to talk to the ride's driver — idempotent via the
+// unique constraint below (architecture.md §6/claude.md §5: "unique
+// constraint as arbiter"), never a check-then-insert. `driverId` is
+// denormalized from `ride.driverId` at creation time — a ride's driver never
+// changes post-creation, so this can never go stale, and authorization
+// checks never need to join through Ride to learn who the driver is.
+model Conversation {
+  id          String @id @default(uuid()) @db.Uuid
+  rideId      String @map("ride_id") @db.Uuid
+  driverId    String @map("driver_id") @db.Uuid
+  passengerId String @map("passenger_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ride      Ride      @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  driver    User      @relation("ConversationDriver", fields: [driverId], references: [id], onDelete: Cascade)
+  passenger User      @relation("ConversationPassenger", fields: [passengerId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@unique([rideId, passengerId])
+  @@index([driverId])
+  @@index([passengerId])
+  @@map("conversations")
+}
+
+// A single chat message, sent over WebSocket only (no REST POST-message
+// endpoint exists — steps.md §14). `readAt` exists on the schema (the
+// conceptual model calls for it) but nothing in this phase ever sets it: no
+// read-receipt flow is specified for chat, unlike notifications' explicit
+// PATCH .../read.
+model Message {
+  id             String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+  senderId       String @map("sender_id") @db.Uuid
+
+  content String
+
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
 }
