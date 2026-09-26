@@ -132,6 +132,33 @@ enum TransactionStatus {
   @@map("transaction_status")
 }
 
+// The platform a registration token was issued for — informational only
+// today (nothing branches on it yet), but part of what a client supplies
+// when registering a device (architecture.md §5/§15).
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+
+  @@map("device_platform")
+}
+
+// A closed enum on purpose, the same discipline as TransactionType: the nine
+// business events this system ever notifies about (architecture.md §15).
+enum NotificationType {
+  RIDE_BOOKED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  RIDE_CANCELLED
+  RIDE_STARTING
+  RIDE_COMPLETED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+
+  @@map("notification_type")
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -174,6 +201,8 @@ model User {
   ridesDriven                Ride[]           @relation("RideDriver")
   bookings                   Booking[]        @relation("BookingPassenger")
   idempotencyKeys            IdempotencyKey[]
+  devices                    UserDevice[]
+  notifications              Notification[]
 
   @@map("users")
 }
@@ -464,4 +493,63 @@ model IdempotencyKey {
 
   @@unique([userId, key])
   @@map("idempotency_keys")
+}
+
+// One row per registered FCM registration token (architecture.md §5/§15).
+// `deviceToken` is globally UNIQUE, not scoped to a user — a physical device
+// has one owner at a time; a different account logging in on the same
+// device reassigns it via upsert-by-token, it does not create a second row.
+//
+// The one exception to "no soft deletion" (architecture.md §6): an
+// FCM-invalidated token is genuinely removed, not marked with a status —
+// `user_devices` has no status column in this schema, and a dead
+// registration token is not history worth keeping.
+model UserDevice {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  deviceToken String         @unique @map("device_token")
+  platform    DevicePlatform
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_devices")
+}
+
+// The in-app notification history — persisted independently of whether push
+// delivery ever succeeds (architecture.md §15: "Persistence and delivery are
+// separate concerns... a push failure can never prevent the in-app row from
+// existing"). `id` is NOT database-generated: it is minted by the producer
+// at *enqueue* time and passed in, so the delivery worker's own persistence
+// step (`upsert` by this same id) is idempotent across BullMQ retries — an
+// id generated inside the worker would differ on every attempt and produce
+// duplicate rows instead.
+//
+// `title`/`body` are stored copies of what was (or will be) pushed, per
+// notificationService's "each NotificationType owns its own title/body
+// copy" — not a foreign-key reference to whatever triggered it, so the
+// history keeps reading correctly even if the underlying ride/booking is
+// later modified.
+model Notification {
+  id     String           @id @db.Uuid
+  userId String           @map("user_id") @db.Uuid
+  type   NotificationType
+
+  title String
+  body  String
+
+  // Null means unread. Set once, to the first read; a second mark-read call
+  // is idempotent — it never overwrites an already-set value.
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
