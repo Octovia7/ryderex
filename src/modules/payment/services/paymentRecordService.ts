@@ -69,6 +69,13 @@ export async function recordOrder(
 // (`FINAL_PAYMENT`, alongside `BOOKING_PREPAYMENT`) — `transactionType` is
 // what disambiguates them; the caller no longer decides from `bookingId`
 // alone.
+//
+// `userId`/`amount` (steps.md §13): the paying user and the resolved
+// amount, already in scope from the Payment row this function reads (userId
+// is derived from `ride.driverId`/`booking.passengerId` by
+// paymentRepository's widened select, never a stored column or a second
+// query) — so the notification wiring that dispatches on this result never
+// needs a second query to learn who to notify.
 export type ResolvePaymentResult =
   | { outcome: 'not_found' }
   | { outcome: 'already_resolved' }
@@ -77,6 +84,7 @@ export type ResolvePaymentResult =
       paymentId: string;
       rideId: string | null;
       bookingId: string | null;
+      userId: string | null;
       amount: number;
       transactionType: TransactionType;
     };
@@ -130,6 +138,7 @@ export async function resolvePaymentByOrderId(
     paymentId: existing.id,
     rideId: existing.rideId,
     bookingId: existing.bookingId,
+    userId: existing.userId,
     amount: existing.amount,
     transactionType: transaction.type,
   };

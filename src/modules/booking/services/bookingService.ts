@@ -6,6 +6,7 @@ import type { Coordinates } from '../../../infrastructure/maps';
 import { paymentProvider, providerName } from '../../../infrastructure/payments';
 import { scheduleBookingExpiry } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
+import * as notificationService from '../../notification/services/notificationService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
@@ -189,6 +190,11 @@ export async function createBooking(
   // any more than it can un-create a gateway order.
   await scheduleBookingExpiry(bookingId);
 
+  // RIDE_BOOKED, to the driver (steps.md §13) — the seat hold already
+  // exists at this point regardless of what the payment call below does, so
+  // this is the right moment to notify: a passenger genuinely booked a seat.
+  await notificationService.notifyRideBooked(ride.driverId, input.seats);
+
   // The order is for the amount the booking itself recorded.
   const order = await paymentProvider.createOrder({
     amount: Number(outcome.booking.prepaidAmount),
@@ -338,6 +344,10 @@ export async function cancelBooking(passengerId: string, bookingId: string): Pro
     console.error(`[booking] failed to cancel the scheduled expiry job for ${bookingId}`, error);
   });
 
+  // BOOKING_CANCELLED, to the passenger who just cancelled their own booking
+  // (steps.md §13).
+  await notificationService.notifyBookingCancelled(cancelledBooking.passengerId);
+
   return toBookingDto(cancelledBooking);
 }
 
@@ -442,6 +452,11 @@ export async function resolveFinalPaymentOutcome(
 export interface CascadeCancelResult {
   bookingIdsNeedingExpiryCancel: string[];
   refundTransactionIds: string[];
+  // Every passenger whose booking THIS cascade actually cancelled (steps.md
+  // §13: "rideService.cancelRide cascade → RIDE_CANCELLED per affected
+  // passenger") — collected here since the caller runs after commit, and
+  // this is the one place that knows which bookings really applied.
+  affectedPassengerIds: string[];
 }
 
 export async function cancelActiveBookingsForRide(
@@ -451,6 +466,7 @@ export async function cancelActiveBookingsForRide(
   const activeBookings = await bookingRepository.findActiveByRideId(tx, rideId);
   const bookingIdsNeedingExpiryCancel: string[] = [];
   const refundTransactionIds: string[] = [];
+  const affectedPassengerIds: string[] = [];
 
   for (const booking of activeBookings) {
     const cancelled = await bookingRepository.cancelForCascade(tx, booking.id);
@@ -470,6 +486,8 @@ export async function cancelActiveBookingsForRide(
       );
     }
 
+    affectedPassengerIds.push(booking.passengerId);
+
     if (booking.status === 'CONFIRMED') {
       const refund = await paymentRecordService.recordRefundForBooking(
         tx,
@@ -482,7 +500,7 @@ export async function cancelActiveBookingsForRide(
     }
   }
 
-  return { bookingIdsNeedingExpiryCancel, refundTransactionIds };
+  return { bookingIdsNeedingExpiryCancel, refundTransactionIds, affectedPassengerIds };
 }
 
 // A thin, non-fatal pass-through so rideService.cancelRide's cascade only
@@ -503,4 +521,14 @@ export async function cancelScheduledExpiryJobs(bookingIds: string[]): Promise<v
       }),
     ),
   );
+}
+
+// rideService.startRide/completeRide's own lookup (steps.md §13: "per
+// CONFIRMED booking's passenger"), reusing the exact same repository read
+// finalPaymentService already uses for a different purpose — the booking
+// module still never lets ride module reach into bookingRepository
+// directly, only through this service.
+export async function getConfirmedPassengerIds(rideId: string): Promise<string[]> {
+  const bookings = await bookingRepository.findConfirmedByRideId(prisma, rideId);
+  return bookings.map((booking) => booking.passengerId);
 }

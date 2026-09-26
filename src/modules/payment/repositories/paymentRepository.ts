@@ -21,6 +21,13 @@ export interface PaymentRecord {
   id: string;
   rideId: string | null;
   bookingId: string | null;
+  // The paying user — the driver for a posting-fee Payment (via its Ride),
+  // the passenger for a prepayment or final-payment one (via its Booking).
+  // Derived here from the two relations Payment already has, never stored:
+  // a Payment always has exactly one of rideId/bookingId set (steps.md §13:
+  // "userId... already in scope from the payment row it reads" — the SAME
+  // query, just a wider select, not a second lookup or a schema column).
+  userId: string | null;
   provider: string;
   providerOrderId: string;
   providerPaymentId: string | null;
@@ -41,6 +48,8 @@ const PAYMENT_SELECT = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  ride: { select: { driverId: true } },
+  booking: { select: { passengerId: true } },
 } as const;
 
 function toPaymentRecord(row: {
@@ -54,8 +63,15 @@ function toPaymentRecord(row: {
   status: 'CREATED' | 'SUCCESS' | 'FAILED';
   createdAt: Date;
   updatedAt: Date;
+  ride: { driverId: string } | null;
+  booking: { passengerId: string } | null;
 }): PaymentRecord {
-  return { ...row, amount: Number(row.amount) };
+  const { ride, booking, ...rest } = row;
+  return {
+    ...rest,
+    amount: Number(row.amount),
+    userId: ride?.driverId ?? booking?.passengerId ?? null,
+  };
 }
 
 // A gateway attempt always starts CREATED (the column default) — neither is a

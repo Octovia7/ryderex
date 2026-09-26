@@ -3,6 +3,7 @@ import { paymentProvider } from '../../../infrastructure/payments';
 import { AppError } from '../../../shared/AppError';
 import { cancelScheduledBookingExpiry } from '../../booking/services/bookingExpiryService';
 import * as bookingService from '../../booking/services/bookingService';
+import * as notificationService from '../../notification/services/notificationService';
 import * as rideService from '../../ride/services/rideService';
 import { paymentWebhookPayloadSchema } from '../schemas/paymentWebhookPayload.schema';
 import * as paymentRecordService from './paymentRecordService';
@@ -154,5 +155,36 @@ export async function processPaymentWebhook(
         `${result.rideId ? `ride ${result.rideId}` : `booking ${result.bookingId}`} ` +
         'had already moved on — needs manual review (no automatic refund exists yet).',
     );
+  }
+
+  // Notification producers (steps.md §13) — after commit, never inside the
+  // transaction above. `result.userId` (derived from `ride.driverId` /
+  // `booking.passengerId`, never a stored column — paymentRepository's
+  // widened select) can be null only if the Payment's own Ride/Booking was
+  // itself deleted (its SetNull relation); either way there is no one left
+  // to notify, so this is a silent no-op, not an error.
+  if (result.userId) {
+    // BOOKING_CONFIRMED fires only when the booking genuinely transitioned —
+    // never on the race where it had already moved on (`!result.applied`
+    // above), which would be telling someone their booking is confirmed when
+    // it was not.
+    if (
+      result.applied &&
+      result.transactionType === 'BOOKING_PREPAYMENT' &&
+      outcome === 'SUCCESS'
+    ) {
+      await notificationService.notifyBookingConfirmed(result.userId);
+    }
+
+    // PAYMENT_SUCCESS/PAYMENT_FAILED fire for every resolved payment, all
+    // three transaction types, regardless of whether the downstream entity
+    // transition applied — this is about the PAYMENT itself having
+    // resolved, independent of whatever race the ride/booking's own state
+    // is in.
+    if (outcome === 'SUCCESS') {
+      await notificationService.notifyPaymentSuccess(result.userId, result.amount);
+    } else {
+      await notificationService.notifyPaymentFailed(result.userId, result.amount);
+    }
   }
 }

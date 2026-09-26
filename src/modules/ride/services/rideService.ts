@@ -9,6 +9,7 @@ import { scheduleRefund } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as bookingService from '../../booking/services/bookingService';
 import * as finalPaymentService from '../../booking/services/finalPaymentService';
+import * as notificationService from '../../notification/services/notificationService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as userService from '../../user/services/userService';
 import * as rideRepository from '../repositories/rideRepository';
@@ -162,33 +163,39 @@ async function assertOwnRide(driverId: string, rideId: string): Promise<void> {
   }
 }
 
-// Ownership first (404), then the conditional transition (409). The
-// transition's WHERE enumerates every legal source state, so two concurrent
-// requests can never both apply, and an illegal one writes nothing.
-async function transitionOwnRide(
-  driverId: string,
-  rideId: string,
-  from: RideStatus[],
-  to: RideStatus,
-  action: string,
-): Promise<RideDto> {
+// Ownership first (404), then the conditional transition (409), then
+// RIDE_STARTING to every CONFIRMED booking's passenger (steps.md §13,
+// "reusing Phase 11's bookingRepository.findConfirmedByRideId" — via
+// bookingService.getConfirmedPassengerIds, since ride module never reaches
+// into bookingRepository directly). The notification loop runs only once
+// the transition has actually applied, and only after — notifying never
+// belongs inside the transition itself, and there is no transition here to
+// share a transaction with regardless (transitionStatus is a single
+// statement).
+export async function startRide(driverId: string, rideId: string): Promise<RideDto> {
   await assertOwnRide(driverId, rideId);
 
-  const transitioned = await rideRepository.transitionStatus(prisma, rideId, from, to);
+  const started = await rideRepository.transitionStatus(
+    prisma,
+    rideId,
+    ['OPEN', 'FULL'],
+    'STARTED',
+  );
 
-  if (!transitioned) {
+  if (!started) {
     throw new AppError({
       statusCode: 409,
       code: 'INVALID_RIDE_STATE',
-      message: `This ride cannot be ${action} from its current state.`,
+      message: 'This ride cannot be started from its current state.',
     });
   }
 
-  return getRide(rideId);
-}
+  const passengerIds = await bookingService.getConfirmedPassengerIds(rideId);
+  for (const passengerId of passengerIds) {
+    await notificationService.notifyRideStarting(passengerId);
+  }
 
-export function startRide(driverId: string, rideId: string): Promise<RideDto> {
-  return transitionOwnRide(driverId, rideId, ['OPEN', 'FULL'], 'STARTED', 'started');
+  return getRide(rideId);
 }
 
 // Unlike start (and unlike cancel's own cascade), this does not go through
@@ -230,6 +237,15 @@ export async function completeRide(driverId: string, rideId: string): Promise<Ri
   }
 
   await finalPaymentService.createFinalPaymentOrdersForRide(rideId);
+
+  // RIDE_COMPLETED, per CONFIRMED booking's passenger (steps.md §13) — a
+  // separate read from finalPaymentService's own above: each stays focused
+  // on one concern (creating orders vs. notifying) rather than threading an
+  // extra field through a return type for the other's sake.
+  const passengerIds = await bookingService.getConfirmedPassengerIds(rideId);
+  for (const passengerId of passengerIds) {
+    await notificationService.notifyRideCompleted(passengerId);
+  }
 
   return getRide(rideId);
 }
@@ -290,7 +306,7 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
       return { kind: 'not_cancelled' } as const;
     }
 
-    const { bookingIdsNeedingExpiryCancel, refundTransactionIds } =
+    const { bookingIdsNeedingExpiryCancel, refundTransactionIds, affectedPassengerIds } =
       await bookingService.cancelActiveBookingsForRide(tx, rideId);
 
     if (policy.refundAmount > 0) {
@@ -305,7 +321,12 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
       }
     }
 
-    return { kind: 'cancelled', bookingIdsNeedingExpiryCancel, refundTransactionIds } as const;
+    return {
+      kind: 'cancelled',
+      bookingIdsNeedingExpiryCancel,
+      refundTransactionIds,
+      affectedPassengerIds,
+    } as const;
   });
 
   if (outcome.kind === 'not_cancelled') {
@@ -320,6 +341,13 @@ export async function cancelRide(driverId: string, rideId: string): Promise<Ride
 
   for (const transactionId of outcome.refundTransactionIds) {
     await scheduleRefund(transactionId);
+  }
+
+  // RIDE_CANCELLED, per affected passenger (steps.md §13) — never inside
+  // the transaction above; notifyRideCancelled only ever enqueues a BullMQ
+  // job (an external Redis call) and never throws.
+  for (const passengerId of outcome.affectedPassengerIds) {
+    await notificationService.notifyRideCancelled(passengerId);
   }
 
   return getRide(rideId);

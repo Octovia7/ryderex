@@ -146,7 +146,7 @@ export function findRideAndSeats(client: Client, id: string) {
 export function findActiveByRideId(client: Client, rideId: string) {
   return client.booking.findMany({
     where: { rideId, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
-    select: { id: true, seats: true, status: true, prepaidAmount: true },
+    select: { id: true, passengerId: true, seats: true, status: true, prepaidAmount: true },
   });
 }
 
@@ -172,10 +172,20 @@ export async function cancelForCascade(client: Client, id: string): Promise<bool
 // succeeds — every booking still CONFIRMED at that point owes the
 // remaining 90%. Not read inside any transaction: the external createOrder()
 // call that follows for each one must never sit inside one.
+//
+// Also reused by rideService.startRide/completeRide's own notification
+// wiring (steps.md §13: "per CONFIRMED booking's passenger") — `passengerId`
+// is selected for that reason.
 export function findConfirmedByRideId(client: Client, rideId: string) {
   return client.booking.findMany({
     where: { rideId, status: 'CONFIRMED' },
-    select: { id: true, totalFare: true, prepaidAmount: true, finalPaymentOrderId: true },
+    select: {
+      id: true,
+      passengerId: true,
+      totalFare: true,
+      prepaidAmount: true,
+      finalPaymentOrderId: true,
+    },
   });
 }
 

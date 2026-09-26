@@ -1,5 +1,6 @@
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import { bookingExpiryQueue } from '../../../infrastructure/queue';
+import * as notificationService from '../../notification/services/notificationService';
 import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
 
@@ -33,13 +34,13 @@ export async function processBookingExpiry(bookingId: string): Promise<void> {
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
-    const expired = await bookingRepository.expireIfPending(tx, bookingId);
+  const expired = await prisma.$transaction(async (tx) => {
+    const applied = await bookingRepository.expireIfPending(tx, bookingId);
 
-    if (!expired) {
+    if (!applied) {
       // Already confirmed, failed, or cancelled by the time the job ran — a
       // no-op, not an error. The job is safe to run any number of times.
-      return;
+      return false;
     }
 
     const released = await rideService.releaseSeats(tx, booking.rideId, booking.seats);
@@ -47,7 +48,17 @@ export async function processBookingExpiry(bookingId: string): Promise<void> {
     if (!released) {
       throw new Error(`Seat release failed for expiring booking ${bookingId}; expiry rolled back.`);
     }
+
+    return true;
   });
+
+  if (expired) {
+    // BOOKING_CANCELLED (steps.md §13) — only when THIS call actually
+    // expired it, never on the no-op path (a booking already confirmed,
+    // failed, or cancelled some other way must not get a second, wrong
+    // notification here).
+    await notificationService.notifyBookingCancelled(booking.passengerId);
+  }
 }
 
 // Removes a booking's scheduled seat-hold expiry job, called after any

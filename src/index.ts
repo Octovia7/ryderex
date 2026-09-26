@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { config } from './config';
 import { createBookingExpiryWorker } from './modules/booking/workers/bookingExpiryWorker';
+import { createNotificationWorker } from './modules/notification/workers/notificationWorker';
 import { createRefundWorker } from './modules/payment/workers/refundWorker';
 
 const app = createApp();
@@ -10,6 +11,7 @@ const app = createApp();
 // alongside the HTTP server and closed alongside it below.
 const bookingExpiryWorker = createBookingExpiryWorker();
 const refundWorker = createRefundWorker();
+const notificationWorker = createNotificationWorker();
 
 const server = app.listen(config.port, () => {
   console.log(`[saathiride] listening on port ${config.port} (${config.nodeEnv})`);
@@ -30,6 +32,9 @@ function shutdown(signal: NodeJS.Signals): void {
       }),
       refundWorker.close().catch((workerError: unknown) => {
         console.error('[saathiride] error closing the refund worker', workerError);
+      }),
+      notificationWorker.close().catch((workerError: unknown) => {
+        console.error('[saathiride] error closing the notification worker', workerError);
       }),
     ]).finally(() => process.exit(0));
   });

@@ -1,5 +1,6 @@
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import { paymentProvider } from '../../../infrastructure/payments';
+import * as notificationService from '../../notification/services/notificationService';
 import * as paymentRepository from '../repositories/paymentRepository';
 
 // The BullMQ refund worker's own handler (steps.md §12): loads the REFUND
@@ -42,4 +43,15 @@ export async function processRefund(transactionId: string): Promise<void> {
   });
 
   await paymentRepository.resolveTransactionById(prisma, transactionId, 'SUCCESS');
+
+  // REFUND_PROCESSED (steps.md §13), after the refund actually resolves to
+  // SUCCESS — to whichever user originally paid (the driver for a posting-
+  // commission refund, the passenger for a prepayment refund): `payment`
+  // already has their userId in scope (derived from `ride.driverId` /
+  // `booking.passengerId` via paymentRepository's widened select, never a
+  // second lookup). It can be null only if the Payment's own Ride/Booking
+  // was itself deleted, in which case there is no one left to notify.
+  if (payment.userId) {
+    await notificationService.notifyRefundProcessed(payment.userId, transaction.amount);
+  }
 }
