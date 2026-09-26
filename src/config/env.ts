@@ -102,6 +102,19 @@ const envSchema = z.object({
   // without a Razorpay account should still exercise genuine HMAC-SHA256
   // verification, never a stand-in.
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().optional(),
+
+  // Push has a SAFE fallback, unlike Payment/Email (architecture.md §16):
+  // left optional for local development without an FCM service account;
+  // FirebasePushProvider is only ever constructed once all three are
+  // present, and ConsolePushProvider (logs instead of sending) is used
+  // otherwise — degraded, not a boot refusal, since nothing about auth,
+  // rides, or payments depends on push actually working.
+  FCM_PROJECT_ID: z.string().optional(),
+  FCM_CLIENT_EMAIL: z.string().optional(),
+  // Env vars can't hold a literal newline; FirebasePushProvider re-expands
+  // the escaped `\n` sequences a `.env` file (or most secret managers) store
+  // this kind of multi-line PEM value as, back into real ones.
+  FCM_PRIVATE_KEY: z.string().optional(),
 });
 
 function loadEnv() {
@@ -205,6 +218,11 @@ export const config = {
     providerKey: env.PAYMENT_PROVIDER_KEY,
     providerSecret: env.PAYMENT_PROVIDER_SECRET,
     webhookSecret: env.PAYMENT_PROVIDER_WEBHOOK_SECRET,
+  },
+  fcm: {
+    projectId: env.FCM_PROJECT_ID,
+    clientEmail: env.FCM_CLIENT_EMAIL,
+    privateKey: env.FCM_PRIVATE_KEY,
   },
 } as const;
 
