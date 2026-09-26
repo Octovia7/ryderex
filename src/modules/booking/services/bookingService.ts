@@ -11,6 +11,7 @@ import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
 import { cancelScheduledBookingExpiry } from './bookingExpiryService';
 import type { CreateBookingInput } from '../schemas/createBooking.schema';
+import * as settlementService from './settlementService';
 
 // The passenger pays this share of the booking's total fare up front.
 const PREPAYMENT_PERCENT = 10;
@@ -48,6 +49,7 @@ export interface BookingDto {
   drop: Coordinates;
   status: BookingStatus;
   paymentOrderId: string | null;
+  finalPaymentOrderId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +69,7 @@ function toBookingDto(booking: BookingRecord): BookingDto {
     drop: { lat: booking.dropLat, lng: booking.dropLng },
     status: booking.status,
     paymentOrderId: booking.paymentOrderId,
+    finalPaymentOrderId: booking.finalPaymentOrderId,
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
   };
@@ -372,6 +375,48 @@ export async function resolvePaymentOutcome(
         `Seat release failed for booking ${bookingId} on payment failure; webhook rolled back.`,
       );
     }
+  }
+
+  return applied;
+}
+
+// Called only from the payment webhook, for a FINAL_PAYMENT transaction
+// (steps.md §12), inside its one transaction spanning the Payment/
+// Transaction resolution and this entity transition. CONFIRMED is the only
+// legal source state — the ride has already reached COMPLETED by the time
+// this can ever fire (completeRide is what creates the order in the first
+// place), so there is no seat to release either way.
+//
+// FAILED gets no status transition at all: the ride already happened, and
+// there is nothing to unwind (steps.md §12: "logged for manual follow-up (no
+// seat to release, ride already happened)"). Returning `true` here is
+// deliberate, not a claim that anything applied — it tells the webhook's own
+// generic "needs manual review" log to stay quiet, since this branch already
+// logs its own, more specific message.
+export async function resolveFinalPaymentOutcome(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  outcome: 'SUCCESS' | 'FAILED',
+): Promise<boolean> {
+  if (outcome === 'FAILED') {
+    console.error(
+      `[finalPayment] final payment failed for booking ${bookingId}; needs manual follow-up.`,
+    );
+    return true;
+  }
+
+  const booking = await bookingRepository.findTotalFare(tx, bookingId);
+  const applied = await bookingRepository.completeBooking(tx, bookingId);
+
+  if (applied && booking) {
+    // The one place the 3%/97% split is computed (architecture.md
+    // "Settlement") — logged, never persisted: no wallet/payout table is in
+    // scope, and TransactionType is a closed enum.
+    const settlement = settlementService.calculateSettlement(Number(booking.totalFare));
+    console.log(
+      `[settlement] booking ${bookingId} completed: ` +
+        `platformCommission=${settlement.platformCommission} driverShare=${settlement.driverShare}`,
+    );
   }
 
   return applied;

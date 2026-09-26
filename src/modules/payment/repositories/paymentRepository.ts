@@ -176,6 +176,25 @@ export async function resolveTransaction(
   return result.count === 1;
 }
 
+// The webhook's own disambiguation lookup: a Payment's `bookingId` alone no
+// longer says which of BOOKING_PREPAYMENT or FINAL_PAYMENT it is (a booking
+// now has one of each, in separate Payment rows over its lifetime — Phase 10
+// Step 2's `paymentRecordService.resolvePaymentByOrderId` comment flagged
+// this exact gap). Every Payment is created together with exactly one
+// Transaction (recordOrder writes both), so this is a plain by-id read, not
+// a search — a `findFirst`, not a `findUnique`, only because Transaction has
+// no unique constraint on `paymentId` itself.
+export async function findTransactionByPaymentId(
+  client: Client,
+  paymentId: string,
+): Promise<TransactionRecord | null> {
+  const transaction = await client.transaction.findFirst({
+    where: { paymentId },
+    select: TRANSACTION_SELECT,
+  });
+  return transaction ? toTransactionRecord(transaction) : null;
+}
+
 // The driver-cancellation cascade's lookup for "was the posting commission
 // actually captured?" — a refund is only ever owed against money that
 // genuinely moved. A plain read: whether a refund is then created is the

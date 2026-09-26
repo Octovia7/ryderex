@@ -35,8 +35,11 @@ function invalidPayload(cause?: unknown): AppError {
 //     is what earns the body any trust at all).
 //  4. ONE transaction: resolve the Payment/Transaction (only from CREATED —
 //     layer 1 of duplicate-webhook idempotency), then the ride/booking
-//     transition by whichever of rideId/bookingId is set (itself a
-//     conditional update — layer 3).
+//     transition dispatched by transactionType (itself a conditional
+//     update — layer 3): DRIVER_RIDE_FEE moves the ride, BOOKING_PREPAYMENT
+//     and FINAL_PAYMENT each move the booking differently (Phase 11 Step 4:
+//     a booking now funds two transaction types over its lifetime, so
+//     `bookingId` alone no longer says which transition applies).
 //  5. After commit: cancel the booking's scheduled expiry job (an external
 //     Redis call, so it can never sit inside the transaction above); log a
 //     manual-review error if the transition didn't apply even though the
@@ -93,13 +96,22 @@ export async function processPaymentWebhook(
       return resolved;
     }
 
+    // Dispatch by transactionType, not merely by which of rideId/bookingId
+    // is set: a booking now funds two different transaction types over its
+    // lifetime (BOOKING_PREPAYMENT at creation, FINAL_PAYMENT at ride
+    // completion), each needing a different entity transition.
     let applied: boolean;
-    if (resolved.rideId) {
+    if (resolved.transactionType === 'DRIVER_RIDE_FEE' && resolved.rideId) {
       applied = await rideService.resolvePostingFeeOutcome(tx, resolved.rideId, outcome);
-    } else if (resolved.bookingId) {
+    } else if (resolved.transactionType === 'BOOKING_PREPAYMENT' && resolved.bookingId) {
       applied = await bookingService.resolvePaymentOutcome(tx, resolved.bookingId, outcome);
+    } else if (resolved.transactionType === 'FINAL_PAYMENT' && resolved.bookingId) {
+      applied = await bookingService.resolveFinalPaymentOutcome(tx, resolved.bookingId, outcome);
     } else {
-      // Defensive: recordOrder always sets exactly one of rideId/bookingId.
+      // Defensive: recordOrder/recordRefundFor* always pair a transactionType
+      // with the matching id (DRIVER_RIDE_FEE + rideId, BOOKING_PREPAYMENT/
+      // FINAL_PAYMENT + bookingId) — REFUND transactions are resolved by
+      // refundService, never by this webhook.
       applied = false;
     }
 
@@ -132,13 +144,15 @@ export async function processPaymentWebhook(
 
   if (!result.applied) {
     // The money genuinely moved (Payment/Transaction are correctly resolved)
-    // but the ride/booking had already left PENDING_PAYMENT by some other
-    // path (e.g. the TTL expiry beat this webhook to it) — flagged for
-    // manual review rather than silently dropped.
+    // but the ride/booking had already moved on from the state this
+    // transition expected by some other path (e.g. the TTL expiry beat a
+    // BOOKING_PREPAYMENT webhook to it) — flagged for manual review rather
+    // than silently dropped. (resolveFinalPaymentOutcome's own FAILED branch
+    // never reaches here — it returns `true` and logs its own message.)
     console.error(
       `[webhook] payment ${result.paymentId} resolved ${outcome} but its ` +
         `${result.rideId ? `ride ${result.rideId}` : `booking ${result.bookingId}`} ` +
-        'had already left PENDING_PAYMENT — needs manual review (no automatic refund exists yet).',
+        'had already moved on — needs manual review (no automatic refund exists yet).',
     );
   }
 }

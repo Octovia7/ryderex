@@ -8,6 +8,7 @@ import { paymentProvider, providerName } from '../../../infrastructure/payments'
 import { scheduleRefund } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as bookingService from '../../booking/services/bookingService';
+import * as finalPaymentService from '../../booking/services/finalPaymentService';
 import * as paymentRecordService from '../../payment/services/paymentRecordService';
 import * as userService from '../../user/services/userService';
 import * as rideRepository from '../repositories/rideRepository';
@@ -190,8 +191,47 @@ export function startRide(driverId: string, rideId: string): Promise<RideDto> {
   return transitionOwnRide(driverId, rideId, ['OPEN', 'FULL'], 'STARTED', 'started');
 }
 
-export function completeRide(driverId: string, rideId: string): Promise<RideDto> {
-  return transitionOwnRide(driverId, rideId, ['STARTED'], 'COMPLETED', 'completed');
+// Unlike start (and unlike cancel's own cascade), this does not go through
+// transitionOwnRide either: completing a ride triggers the final-payment
+// flow (steps.md §12) for every CONFIRMED booking on it, which
+// transitionOwnRide's generic shape has no room for.
+//
+//  1. Ownership first (404, never 403) — assertOwnRide, same as every other
+//     owner-scoped action.
+//  2. The conditional transition (rideRepository.complete: STARTED ->
+//     COMPLETED). A lost transition is the ordinary 409 INVALID_RIDE_STATE,
+//     not a throw — nothing has happened yet to roll back.
+//  3. Only once completion has actually applied: create a FINAL_PAYMENT
+//     order for every CONFIRMED booking on the ride
+//     (finalPaymentService.createFinalPaymentOrdersForRide) — synchronous
+//     with this same request, mirroring how ride/booking creation already
+//     auto-create their own payment orders. This never runs inside a
+//     transaction with step 2's UPDATE: it makes one external createOrder()
+//     call per booking, and external calls never belong inside a
+//     transaction.
+//
+// The booking itself only reaches COMPLETED later, via the final-payment
+// webhook's own FINAL_PAYMENT branch (architecture.md's booking state
+// diagram: "CONFIRMED --> COMPLETED: final-payment webhook SUCCESS") — never
+// here. createFinalPaymentOrdersForRide never throws (each booking is
+// wrapped in its own try/catch internally), so a partial failure here still
+// lets this request return the completed ride.
+export async function completeRide(driverId: string, rideId: string): Promise<RideDto> {
+  await assertOwnRide(driverId, rideId);
+
+  const completed = await rideRepository.complete(prisma, rideId);
+
+  if (!completed) {
+    throw new AppError({
+      statusCode: 409,
+      code: 'INVALID_RIDE_STATE',
+      message: 'This ride cannot be completed from its current state.',
+    });
+  }
+
+  await finalPaymentService.createFinalPaymentOrdersForRide(rideId);
+
+  return getRide(rideId);
 }
 
 // The driver-cancellation cascade (steps.md §12/architecture.md §12): unlike

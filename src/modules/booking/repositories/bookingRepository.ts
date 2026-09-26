@@ -16,6 +16,7 @@ const SELECT = {
   dropLng: true,
   status: true,
   paymentOrderId: true,
+  finalPaymentOrderId: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -165,4 +166,59 @@ export async function cancelForCascade(client: Client, id: string): Promise<bool
     data: { status: 'CANCELLED' },
   });
   return result.count === 1;
+}
+
+// finalPaymentService's own snapshot, read AFTER rideRepository.complete()
+// succeeds — every booking still CONFIRMED at that point owes the
+// remaining 90%. Not read inside any transaction: the external createOrder()
+// call that follows for each one must never sit inside one.
+export function findConfirmedByRideId(client: Client, rideId: string) {
+  return client.booking.findMany({
+    where: { rideId, status: 'CONFIRMED' },
+    select: { id: true, totalFare: true, prepaidAmount: true, finalPaymentOrderId: true },
+  });
+}
+
+// Conditional UPDATE: a final payment order is attached exactly once, the
+// same idempotency shape as attachPaymentOrder above — `count === 0` means
+// one is already attached (createFinalPaymentOrdersForRide re-invoked after
+// a partial failure, most likely) and nothing was overwritten.
+//
+// Takes a client so the service can run this in the SAME follow-up
+// transaction as the Payment/Transaction rows that record this same order.
+export async function attachFinalPaymentOrder(
+  client: Client,
+  id: string,
+  finalPaymentOrderId: string,
+): Promise<boolean> {
+  const result = await client.booking.updateMany({
+    where: { id, finalPaymentOrderId: null },
+    data: { finalPaymentOrderId },
+  });
+  return result.count === 1;
+}
+
+// The final-payment webhook's own conditional UPDATE — valid ONLY from
+// CONFIRMED, the one state a completed ride's booking can be resolving a
+// final payment from. A duplicate or late delivery finding the booking
+// already COMPLETED matches nothing, the same idempotency shape as
+// confirmPayment above.
+//
+// Takes a client so the webhook can run this in the SAME transaction as
+// resolving the Payment/Transaction rows. Callers branch on the returned
+// boolean, never on a prior read.
+export async function completeBooking(client: Client, id: string): Promise<boolean> {
+  const result = await client.booking.updateMany({
+    where: { id, status: 'CONFIRMED' },
+    data: { status: 'COMPLETED' },
+  });
+  return result.count === 1;
+}
+
+// The one immutable figure the settlement log needs — read inside the same
+// transaction as completeBooking above, not as a pre-transaction advisory
+// read: totalFare is fixed at booking creation and never changes, so there
+// is no race to lose.
+export function findTotalFare(client: Client, id: string) {
+  return client.booking.findUnique({ where: { id }, select: { totalFare: true } });
 }

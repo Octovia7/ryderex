@@ -204,6 +204,21 @@ export async function cancel(client: Pick<typeof prisma, 'ride'>, id: string): P
   return result.count === 1;
 }
 
+// completeRide's own conditional UPDATE — a dedicated function rather than
+// a `transitionStatus` call, the same reasoning as `cancel` above: its
+// source state and target never vary (STARTED -> COMPLETED, always). Its
+// only call site is rideService.completeRide, which follows a successful
+// call with finalPaymentService.createFinalPaymentOrdersForRide(rideId) —
+// never inside a transaction with this UPDATE, since that follow-up makes
+// external calls per booking.
+export async function complete(client: Pick<typeof prisma, 'ride'>, id: string): Promise<boolean> {
+  const result = await client.ride.updateMany({
+    where: { id, status: 'STARTED' },
+    data: { status: 'COMPLETED' },
+  });
+  return result.count === 1;
+}
+
 interface RawReservedSeats {
   farePerSeat: unknown;
   driverId: string;

@@ -339,6 +339,12 @@ model Booking {
   // AFTER the seat-reservation transaction, never inside it.
   paymentOrderId String? @map("payment_order_id")
 
+  // The same pattern, for the remaining-90% order created at ride completion
+  // (steps.md §12). Null until rideService.completeRide's follow-up creates
+  // one; staying null is also the idempotency guard against re-creating a
+  // second order if createFinalPaymentOrdersForRide is ever re-invoked.
+  finalPaymentOrderId String? @map("final_payment_order_id")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

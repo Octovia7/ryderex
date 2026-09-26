@@ -62,12 +62,13 @@ export async function recordOrder(
 // (retry-worthy); `already_resolved` means a concurrent or earlier duplicate
 // delivery already won the race — nothing is left to do.
 //
-// Note: `bookingId`/`rideId` alone tell the caller which entity to transition
-// (Ride for a driver's posting fee, Booking for a passenger's prepayment) —
-// there is exactly one payment-producing transaction type per entity today
-// (`DRIVER_RIDE_FEE`, `BOOKING_PREPAYMENT`), so this does not yet need to
-// disambiguate further. FINAL_PAYMENT (Phase 11) will need its own handling
-// once a booking can have more than one resolved Payment.
+// Note: `bookingId`/`rideId` alone told the caller which entity to
+// transition (Ride for a driver's posting fee, Booking for a passenger's
+// prepayment) back when there was exactly one payment-producing transaction
+// type per entity. Phase 11 Step 4 added a second one a booking can have
+// (`FINAL_PAYMENT`, alongside `BOOKING_PREPAYMENT`) — `transactionType` is
+// what disambiguates them; the caller no longer decides from `bookingId`
+// alone.
 export type ResolvePaymentResult =
   | { outcome: 'not_found' }
   | { outcome: 'already_resolved' }
@@ -77,6 +78,7 @@ export type ResolvePaymentResult =
       rideId: string | null;
       bookingId: string | null;
       amount: number;
+      transactionType: TransactionType;
     };
 
 export async function resolvePaymentByOrderId(
@@ -110,12 +112,26 @@ export async function resolvePaymentByOrderId(
 
   await paymentRepository.resolveTransaction(client, existing.id, outcome);
 
+  // Every Payment is created together with exactly one Transaction
+  // (recordOrder writes both) — this is what carries `transactionType`,
+  // since a Payment row itself has no `type` field of its own.
+  const transaction = await paymentRepository.findTransactionByPaymentId(client, existing.id);
+
+  if (!transaction) {
+    // Invariant violation, not a normal outcome: recordOrder never creates a
+    // Payment without its Transaction. Thrown (not returned) so this rolls
+    // back with the rest of the webhook's transaction rather than resolving
+    // the Payment with no way to decide what it was for.
+    throw new Error(`Resolved Payment ${existing.id} has no associated Transaction.`);
+  }
+
   return {
     outcome: 'resolved',
     paymentId: existing.id,
     rideId: existing.rideId,
     bookingId: existing.bookingId,
     amount: existing.amount,
+    transactionType: transaction.type,
   };
 }
 
