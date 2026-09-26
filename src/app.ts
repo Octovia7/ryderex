@@ -9,6 +9,7 @@ import { requestId } from './middleware/requestId';
 import adminRoutes from './modules/admin/routes';
 import authRoutes from './modules/auth/routes';
 import bookingRoutes from './modules/booking/routes';
+import notificationRoutes from './modules/notification/routes';
 import webhookRoutes from './modules/payment/routes';
 import rideRoutes from './modules/ride/routes';
 import userRoutes from './modules/user/routes';
@@ -59,6 +60,7 @@ export function createApp(): Application {
   app.use('/api/v1/vehicles', vehicleRoutes);
   app.use('/api/v1/rides', rideRoutes);
   app.use('/api/v1/bookings', bookingRoutes);
+  app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFoundHandler);
