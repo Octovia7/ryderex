@@ -126,6 +126,14 @@ enum TransactionType {
 
 enum TransactionStatus {
   PENDING
+  // Claimed by exactly one refund attempt (refundService.processRefund's
+  // atomic PENDING -> PROCESSING conditional UPDATE) — never set on the
+  // original DRIVER_RIDE_FEE/BOOKING_PREPAYMENT/FINAL_PAYMENT transactions,
+  // which resolve straight from PENDING to SUCCESS/FAILED via the webhook.
+  // A caller that loses the claim (transaction not PENDING) never calls the
+  // provider. On provider failure, the same caller reverts PROCESSING back
+  // to PENDING so BullMQ's own retry/backoff gets another attempt.
+  PROCESSING
   SUCCESS
   FAILED
 

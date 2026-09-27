@@ -254,6 +254,20 @@ function loadEnv() {
         });
       }
     }
+
+    // Phase 15: every per-IP rate limit reads `req.ip`, which is only the
+    // real client when a trusted proxy sets X-Forwarded-For — leaving
+    // TRUST_PROXY off in production lets any client rotate the header and
+    // mint a fresh bucket per request (claude.md §11/§1: "production boot
+    // requires true"). The default stays `false` for development; this
+    // check fires only under NODE_ENV=production.
+    if (data.TRUST_PROXY !== 'true') {
+      throw new AppError({
+        statusCode: 500,
+        code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+        message: 'TRUST_PROXY must be true in production.',
+      });
+    }
   }
 
   return data;

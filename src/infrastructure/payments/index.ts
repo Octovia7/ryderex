@@ -1,4 +1,5 @@
 import { config } from '../../config';
+import { AppError } from '../../shared/AppError';
 import type { PaymentProvider } from './PaymentProvider';
 import { RazorpayProvider } from './RazorpayProvider';
 import { StubPaymentProvider } from './StubPaymentProvider';
@@ -24,9 +25,23 @@ export type {
 export const providerName: 'razorpay' | 'stub' =
   config.payments.providerKey && config.payments.providerSecret ? 'razorpay' : 'stub';
 
+// Phase 15 (architecture.md's own fallback-safety table: "Payment... No safe
+// fallback — boot refuses"): StubPaymentProvider is fine in development,
+// but silently degrading to it in production means real bookings with no
+// money actually moving. Development/test are unaffected; only
+// NODE_ENV=production refuses to boot.
 function createPaymentProvider(): PaymentProvider {
   if (providerName === 'razorpay') {
     return new RazorpayProvider();
+  }
+
+  if (config.isProduction) {
+    throw new AppError({
+      statusCode: 500,
+      code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+      message:
+        'PAYMENT_PROVIDER_KEY and PAYMENT_PROVIDER_SECRET are required in production — refusing to fall back to StubPaymentProvider.',
+    });
   }
 
   console.warn(

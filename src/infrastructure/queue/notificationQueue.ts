@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 import type { NotificationType } from '../../generated/prisma/enums';
 import { queueConnection } from './queueConnection';
+import { withQueueDeadline } from './withQueueDeadline';
 
 export const NOTIFICATION_QUEUE_NAME = 'notification';
 export const DELIVER_NOTIFICATION_JOB_NAME = 'deliver-notification';
@@ -33,10 +34,19 @@ export const notificationQueue = new Queue<DeliverNotificationJobData>(NOTIFICAT
 // table: "5, exponential from 5 s"): a genuine push-gateway failure retries
 // the whole job — safe because the worker's own persistence step is
 // idempotent by this same id.
+// `withQueueDeadline` (Phase 15 Pass 1 finding): every notify* producer
+// calls this synchronously from a request handler, after whatever business
+// write triggered it has already committed — this must resolve or reject
+// within a bound, never hang the response, regardless of `queueConnection`'s
+// own health. `enqueueNotification`'s own try/catch (notificationService.ts)
+// is what turns a rejection here into "logged and swallowed" rather than a
+// failed request — this only guarantees there is always something to catch.
 export function scheduleNotificationDelivery(data: DeliverNotificationJobData) {
-  return notificationQueue.add(DELIVER_NOTIFICATION_JOB_NAME, data, {
-    jobId: data.notificationId,
-    attempts: 5,
-    backoff: { type: 'exponential', delay: 5000 },
-  });
+  return withQueueDeadline(
+    notificationQueue.add(DELIVER_NOTIFICATION_JOB_NAME, data, {
+      jobId: data.notificationId,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 5000 },
+    }),
+  );
 }

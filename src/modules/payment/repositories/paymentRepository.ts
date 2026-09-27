@@ -102,7 +102,7 @@ export interface TransactionRecord {
   bookingId: string | null;
   type: TransactionType;
   amount: number;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,7 +126,7 @@ function toTransactionRecord(row: {
   bookingId: string | null;
   type: TransactionType;
   amount: unknown;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
   createdAt: Date;
   updatedAt: Date;
 }): TransactionRecord {
@@ -272,14 +272,49 @@ export async function findTransactionById(
 // paymentId + PENDING" would be correct only by the accidental fact that a
 // payment has at most one PENDING transaction at a time. Resolving by the
 // refund's own id is explicit instead of relying on that.
+//
+// Guarded on PROCESSING, not PENDING: refundService.processRefund must claim
+// the transaction (claimTransactionForProcessing below) before ever calling
+// the provider, so by the time this runs the row is always PROCESSING —
+// never called from anywhere else.
 export async function resolveTransactionById(
   client: Client,
   id: string,
   status: 'SUCCESS' | 'FAILED',
 ): Promise<boolean> {
   const result = await client.transaction.updateMany({
-    where: { id, status: 'PENDING' },
+    where: { id, status: 'PROCESSING' },
     data: { status },
+  });
+  return result.count === 1;
+}
+
+// The atomic claim a refund attempt must win before it may call the
+// external provider (Phase 15 Pass 1 finding: two concurrent
+// processRefund() calls for the same transaction could both observe PENDING
+// and both call paymentProvider.refund()). Mirrors resolvePayment/
+// resolveTransaction's own conditional-UPDATE-returns-count idiom exactly —
+// PENDING -> PROCESSING, and `count === 1` is the only signal a caller may
+// trust to proceed. A caller that loses the race (count === 0) must return
+// without ever touching the provider.
+export async function claimTransactionForProcessing(client: Client, id: string): Promise<boolean> {
+  const result = await client.transaction.updateMany({
+    where: { id, status: 'PENDING' },
+    data: { status: 'PROCESSING' },
+  });
+  return result.count === 1;
+}
+
+// The claim's undo, for when the provider call itself fails: PROCESSING ->
+// PENDING, so BullMQ's own retry/backoff (attempts: 5, exponential) gets
+// another attempt at the SAME job rather than the transaction being stuck
+// unclaimable forever. Never touches a row that has already resolved to
+// SUCCESS/FAILED (the guard is PROCESSING, not "not PENDING"), so it can
+// only ever undo this exact caller's own claim.
+export async function revertTransactionToPending(client: Client, id: string): Promise<boolean> {
+  const result = await client.transaction.updateMany({
+    where: { id, status: 'PROCESSING' },
+    data: { status: 'PENDING' },
   });
   return result.count === 1;
 }

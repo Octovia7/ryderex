@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import { queueConnection } from './queueConnection';
+import { withQueueDeadline } from './withQueueDeadline';
 
 export const REFUND_QUEUE_NAME = 'refund';
 export const PROCESS_REFUND_JOB_NAME = 'process-refund';
@@ -26,14 +27,20 @@ export const refundQueue = new Queue<RefundJobData>(REFUND_QUEUE_NAME, {
 // genuine gateway failure retries the whole job — safe because
 // refundService.processRefund's own PENDING-only guard makes every attempt,
 // including a retry, idempotent by construction.
+// `withQueueDeadline` (Phase 15 Pass 1 finding): called right after the
+// cascade transaction that created the PENDING REFUND row has already
+// committed — this must resolve or reject within a bound, never hang the
+// response, regardless of `queueConnection`'s own health.
 export function scheduleRefund(transactionId: string) {
-  return refundQueue.add(
-    PROCESS_REFUND_JOB_NAME,
-    { transactionId },
-    {
-      jobId: transactionId,
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 1000 },
-    },
+  return withQueueDeadline(
+    refundQueue.add(
+      PROCESS_REFUND_JOB_NAME,
+      { transactionId },
+      {
+        jobId: transactionId,
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1000 },
+      },
+    ),
   );
 }

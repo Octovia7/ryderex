@@ -8,8 +8,20 @@ import { config } from '../../config';
 // dedicated connection, never the shared `infrastructure/redis` client, whose
 // `commandTimeout` exists for the opposite reason: to make a synchronous
 // request handler fail fast rather than hang.
+//
+// Phase 15: every Redis connection this application owns needs an explicit
+// `error` listener — an ioredis client is an EventEmitter, and an unhandled
+// `error` event is Node's default crash-the-process behavior. `queueConnection`
+// and every `createWorkerConnection()` result both route through this one
+// function, so the listener only needs to exist here.
 function createQueueRedisConnection(): Redis {
-  return new Redis(config.redis.url, { maxRetriesPerRequest: null });
+  const connection = new Redis(config.redis.url, { maxRetriesPerRequest: null });
+
+  connection.on('error', (error: unknown) => {
+    console.error('[redis] queue connection error', error);
+  });
+
+  return connection;
 }
 
 // Shared by every Queue (today, only `booking-expiry`). A Queue only enqueues

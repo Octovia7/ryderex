@@ -107,6 +107,17 @@ export function createSocketServer(httpServer: HttpServer): SocketServerHandle {
   // connection" reasoning BullMQ already follows elsewhere in this codebase.
   const pubClient = redis.duplicate();
   const subClient = redis.duplicate();
+
+  // Phase 15: `.duplicate()` creates a fresh EventEmitter — it does not
+  // inherit the original client's `error` listener — so each one needs its
+  // own, the same reasoning as `infrastructure/queue/queueConnection.ts`.
+  pubClient.on('error', (error: unknown) => {
+    console.error('[socket] redis pub connection error', error);
+  });
+  subClient.on('error', (error: unknown) => {
+    console.error('[socket] redis sub connection error', error);
+  });
+
   io.adapter(createAdapter(pubClient, subClient));
 
   async function close(): Promise<void> {
