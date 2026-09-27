@@ -25,7 +25,21 @@ export function createApp(): Application {
 
   app.use(requestId);
   app.use(helmet());
-  app.use(cors({ origin: config.corsOrigins }));
+  // Explicit methods/headers/credentials (Phase 14) — never a bare origin
+  // string. `origin` is always the parsed `CORS_ORIGINS` array, never a
+  // wildcard (production boot refuses to start with one — config/env.ts).
+  // Methods and headers are the exact, closed set this API actually uses:
+  // only GET/POST/PATCH exist anywhere in this codebase, and the only
+  // request headers ever read are Content-Type, Authorization,
+  // Idempotency-Key and X-Request-Id.
+  app.use(
+    cors({
+      origin: config.corsOrigins,
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id'],
+      credentials: true,
+    }),
+  );
 
   // Mounted BEFORE the shared body parsers below: this route needs the exact
   // raw bytes Razorpay signed, and its own `express.raw()` (see

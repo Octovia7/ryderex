@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { config } from '../../config';
+import { rateLimit } from '../../infrastructure/redis/rateLimit';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validateBody';
@@ -15,6 +17,16 @@ import { vehicleParamsSchema } from './schemas/vehicleParams.schema';
 
 const router = Router();
 
+// The generous "authenticated reads" catch-all (architecture.md §15) — an
+// admin's reads are still "authenticated reads" with no more specific
+// category of their own.
+const authenticatedReadRateLimit = rateLimit({
+  prefix: 'authenticated-read',
+  keyBy: 'user',
+  windowSeconds: 60,
+  max: config.rateLimits.authenticatedReadPerMinute,
+});
+
 // Whole router gated ADMIN — a narrow module with two workflows (driving
 // licences, vehicle documents), no user management, no ride/booking/financial
 // overrides.
@@ -22,6 +34,7 @@ router.use(authenticate, authorize('ADMIN'));
 
 router.get(
   '/driver-applications',
+  authenticatedReadRateLimit,
   validateQuery(listDriverApplicationsQuerySchema),
   adminController.listDriverApplications,
 );
@@ -39,10 +52,16 @@ router.post(
 
 router.get(
   '/vehicles',
+  authenticatedReadRateLimit,
   validateQuery(listVehiclesQuerySchema),
   adminVehicleController.listVehicles,
 );
-router.get('/vehicles/:id', validateParams(vehicleParamsSchema), adminVehicleController.getVehicle);
+router.get(
+  '/vehicles/:id',
+  authenticatedReadRateLimit,
+  validateParams(vehicleParamsSchema),
+  adminVehicleController.getVehicle,
+);
 router.post(
   '/vehicles/:id/verify',
   validateParams(vehicleParamsSchema),

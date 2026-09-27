@@ -1,3 +1,5 @@
+import { config } from '../../../config';
+import { consumeRateLimit } from '../../../infrastructure/redis/rateLimit';
 import type { ChatServer } from '../../../infrastructure/socket/socketServer';
 import { AppError } from '../../../shared/AppError';
 import { joinConversationSchema } from '../schemas/joinConversation.schema';
@@ -30,6 +32,14 @@ function ackError<T>(ack: Ack<T> | undefined, error: unknown): void {
 
 function validationError(message: string): AppError {
   return new AppError({ statusCode: 400, code: 'VALIDATION_ERROR', message });
+}
+
+function rateLimitedError(): AppError {
+  return new AppError({
+    statusCode: 429,
+    code: 'RATE_LIMITED',
+    message: 'Too many messages. Please slow down.',
+  });
 }
 
 // One room per conversation, joined only by sockets that passed
@@ -74,6 +84,21 @@ export function registerChatGateway(io: ChatServer): void {
     // ack (carrying the persisted message); the room broadcast below is for
     // every OTHER socket that has joined, never a substitute for the ack.
     socket.on('send_message', async (payload: unknown, ack?: Ack<MessageDto>) => {
+      // Rate-limited BEFORE validation or any business logic (Phase 14): a
+      // rejected message must never reach `conversationService.sendMessage`
+      // — the same shared limiter every HTTP category uses, called as a
+      // plain function since there is no Express `req`/`res` here.
+      const rateLimitResult = await consumeRateLimit(
+        `ratelimit:websocket-message:${userId}`,
+        60,
+        config.rateLimits.websocketMessagePerMinute,
+      );
+
+      if (!rateLimitResult.allowed) {
+        ackError(ack, rateLimitedError());
+        return;
+      }
+
       const parsed = sendMessageSchema.safeParse(payload);
 
       if (!parsed.success) {

@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { randomInt } from 'node:crypto';
 import { config } from '../../../config';
 import { emailProvider } from '../../../infrastructure/email';
-import { checkRateLimit } from '../../../infrastructure/redis/rateLimit';
+import { consumeRateLimit } from '../../../infrastructure/redis/rateLimit';
 import { redis } from '../../../infrastructure/redis/redisClient';
 import { AppError } from '../../../shared/AppError';
 import * as userService from '../../user/services/userService';
@@ -20,7 +20,7 @@ function otpKey(email: string): string {
 }
 
 export async function requestOtp(email: string, ip: string): Promise<void> {
-  const ipLimit = await checkRateLimit(
+  const ipLimit = await consumeRateLimit(
     `ratelimit:otp-request-ip:${ip}`,
     RATE_LIMIT_WINDOW_SECONDS,
     config.otp.requestIpMax,
@@ -33,7 +33,7 @@ export async function requestOtp(email: string, ip: string): Promise<void> {
     });
   }
 
-  const cooldown = await checkRateLimit(
+  const cooldown = await consumeRateLimit(
     `ratelimit:otp-resend:${email}`,
     config.otp.resendCooldownSeconds,
     1,
@@ -85,7 +85,7 @@ export interface ResolvedUser {
 // Resolves the OTP and the account it belongs to (creating a PASSENGER on
 // first login), but issues no tokens — that is tokenService's concern.
 export async function verifyOtpAndResolveUser(input: VerifyOtpInput): Promise<ResolvedUser> {
-  const ipLimit = await checkRateLimit(
+  const ipLimit = await consumeRateLimit(
     `ratelimit:otp-verify-ip:${input.ip}`,
     RATE_LIMIT_WINDOW_SECONDS,
     config.otp.verifyIpMax,

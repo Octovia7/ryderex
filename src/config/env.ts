@@ -146,6 +146,33 @@ const envSchema = z.object({
   // same call shape otpService already uses, not a new limiter.
   SUPPORT_CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   SUPPORT_CHAT_RATE_LIMIT_PER_DAY: z.coerce.number().int().positive().default(50),
+
+  // Phase 14: every previously-uncovered category, each its own
+  // `*_RATE_LIMIT_*` env var (architecture.md §15: "no second limiter was
+  // introduced"), all consumed through the one shared `rateLimit()`/
+  // `consumeRateLimit()` implementation. Keyed per user where the route is
+  // authenticated, per IP otherwise.
+  AUTH_REFRESH_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(60),
+  RIDE_SEARCH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  // Implementation choice (not a canonical documented value) — a driver
+  // posts rides far less often than searching for one.
+  RIDE_CREATION_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  // Implementation choice (not a canonical documented value).
+  BOOKING_CREATION_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
+  // Implementation choice (not a canonical documented value) — shared by
+  // both document-upload endpoints (vehicle documents, driver-licence
+  // application), one bucket, per user.
+  DOCUMENT_UPLOAD_RATE_LIMIT_PER_DAY: z.coerce.number().int().positive().default(20),
+  // Implementation choice, sized to the canonical requirement that this be
+  // "deliberately high" — dropping a real payment webhook is far worse than
+  // absorbing traffic.
+  WEBHOOK_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  WEBSOCKET_CONNECT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30),
+  WEBSOCKET_MESSAGE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  // Implementation choice — the "generous catch-all bucket for
+  // authenticated reads" (architecture.md §15) that applies to every
+  // authenticated GET route with no more specific category of its own.
+  AUTHENTICATED_READ_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
 });
 
 function loadEnv() {
@@ -179,6 +206,54 @@ function loadEnv() {
       code: 'INVALID_ENVIRONMENT_CONFIGURATION',
       message: 'FARE_RATING_MULTIPLIER_MIN must not exceed FARE_RATING_MULTIPLIER_MAX.',
     });
+  }
+
+  // Phase 14 production-boot assertions (claude.md §11/§14: "Never commit
+  // secrets" / "production-config assertions... refuses to boot with
+  // NODE_ENV=production if a placeholder secret survives... or if
+  // CORS_ORIGIN is localhost or a wildcard"). Schema validation alone
+  // cannot catch these — every placeholder value here is well-formed, valid
+  // input by Zod's own rules. Development is deliberately left alone.
+  if (data.NODE_ENV === 'production') {
+    // Matches this repo's actual .env.example placeholder
+    // ("change-me-in-every-real-environment") as well as the literal
+    // "changeme-" spelling, case-insensitively and hyphen-insensitively —
+    // a literal-only match would silently miss the real placeholder text.
+    const isPlaceholderSecret = (value: string): boolean =>
+      value.toLowerCase().replace(/-/g, '').startsWith('changeme');
+
+    if (isPlaceholderSecret(data.JWT_ACCESS_SECRET)) {
+      throw new AppError({
+        statusCode: 500,
+        code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+        message: 'JWT_ACCESS_SECRET must not be the placeholder value in production.',
+      });
+    }
+
+    // No separate "refresh secret" exists to compare against
+    // JWT_ACCESS_SECRET in this codebase's actual design — refresh tokens
+    // are random bytes stored as a SHA-256 hash, never JWTs (claude.md §7),
+    // so there is no second signing secret this repo could ever set equal
+    // to the access one. This assertion is intentionally not implemented
+    // here; see the Phase 14 report for why.
+
+    for (const origin of data.CORS_ORIGINS) {
+      if (origin === '*') {
+        throw new AppError({
+          statusCode: 500,
+          code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+          message: 'CORS_ORIGINS must not include a wildcard origin in production.',
+        });
+      }
+
+      if (/localhost|127\.0\.0\.1/i.test(origin)) {
+        throw new AppError({
+          statusCode: 500,
+          code: 'INVALID_ENVIRONMENT_CONFIGURATION',
+          message: 'CORS_ORIGINS must not include a localhost origin in production.',
+        });
+      }
+    }
   }
 
   return data;
@@ -267,6 +342,17 @@ export const config = {
     providerTimeoutSeconds: env.SUPPORT_CHAT_PROVIDER_TIMEOUT_SECONDS,
     rateLimitPerMinute: env.SUPPORT_CHAT_RATE_LIMIT_PER_MINUTE,
     rateLimitPerDay: env.SUPPORT_CHAT_RATE_LIMIT_PER_DAY,
+  },
+  rateLimits: {
+    authRefreshPerHour: env.AUTH_REFRESH_RATE_LIMIT_PER_HOUR,
+    rideSearchPerMinute: env.RIDE_SEARCH_RATE_LIMIT_PER_MINUTE,
+    rideCreationPerMinute: env.RIDE_CREATION_RATE_LIMIT_PER_MINUTE,
+    bookingCreationPerMinute: env.BOOKING_CREATION_RATE_LIMIT_PER_MINUTE,
+    documentUploadPerDay: env.DOCUMENT_UPLOAD_RATE_LIMIT_PER_DAY,
+    webhookPerMinute: env.WEBHOOK_RATE_LIMIT_PER_MINUTE,
+    websocketConnectPerMinute: env.WEBSOCKET_CONNECT_RATE_LIMIT_PER_MINUTE,
+    websocketMessagePerMinute: env.WEBSOCKET_MESSAGE_RATE_LIMIT_PER_MINUTE,
+    authenticatedReadPerMinute: env.AUTHENTICATED_READ_RATE_LIMIT_PER_MINUTE,
   },
 } as const;
 

@@ -3,7 +3,7 @@ import { config } from '../../../config';
 import { aiProvider } from '../../../infrastructure/ai';
 import type { AIMessage, AIMessageRole } from '../../../infrastructure/ai';
 import { prisma } from '../../../infrastructure/database/prismaClient';
-import { checkRateLimit } from '../../../infrastructure/redis/rateLimit';
+import { consumeRateLimit } from '../../../infrastructure/redis/rateLimit';
 import { AppError } from '../../../shared/AppError';
 import * as supportConversationRepository from '../repositories/supportConversationRepository';
 import type { SupportConversationRecord } from '../repositories/supportConversationRepository';
@@ -168,12 +168,13 @@ export async function getConversation(
   };
 }
 
-// Reuses the existing Redis rate-limit infrastructure (the same
-// `checkRateLimit` call shape otpService already uses, never a new
-// limiter) — per-user, two independent windows (architecture.md §17:
-// "10/min + 50/day").
+// Reuses the same shared limiter every other category uses (Phase 14:
+// "no second limiter was introduced") — per-user, two independent windows
+// (architecture.md §17: "10/min + 50/day"). Same keys, same windows, same
+// env vars as before Phase 14 — only the underlying call migrated from the
+// old, non-atomic `checkRateLimit` onto the hardened `consumeRateLimit`.
 async function assertWithinRateLimit(userId: string): Promise<void> {
-  const perMinute = await checkRateLimit(
+  const perMinute = await consumeRateLimit(
     `ratelimit:support-chat-min:${userId}`,
     60,
     config.supportChat.rateLimitPerMinute,
@@ -187,7 +188,7 @@ async function assertWithinRateLimit(userId: string): Promise<void> {
     });
   }
 
-  const perDay = await checkRateLimit(
+  const perDay = await consumeRateLimit(
     `ratelimit:support-chat-day:${userId}`,
     86_400,
     config.supportChat.rateLimitPerDay,

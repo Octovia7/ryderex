@@ -1,7 +1,19 @@
 import express, { Router } from 'express';
+import { config } from '../../config';
+import { rateLimit } from '../../infrastructure/redis/rateLimit';
 import * as webhookController from './controllers/webhookController';
 
 const router = Router();
+
+// Per IP, deliberately high (architecture.md §15: "dropping a real payment
+// webhook is far worse than absorbing traffic") — placed BEFORE the raw-body
+// parser, so a flooding request never even has its body buffered.
+const webhookRateLimit = rateLimit({
+  prefix: 'webhook',
+  keyBy: 'ip',
+  windowSeconds: 60,
+  max: config.rateLimits.webhookPerMinute,
+});
 
 // A dedicated raw-body parser, scoped to this one route only — never the
 // shared express.json() every other route uses. Signature verification needs
@@ -15,6 +27,7 @@ const router = Router();
 // why validation happens inside webhookService, not as route middleware.
 router.post(
   '/payment',
+  webhookRateLimit,
   express.raw({ type: 'application/json', limit: '1mb' }),
   webhookController.handlePaymentWebhook,
 );

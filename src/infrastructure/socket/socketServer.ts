@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { config } from '../../config';
 import { verifyAccessToken } from '../../modules/auth/services/tokenService';
 import { AppError } from '../../shared/AppError';
+import { consumeRateLimit } from '../redis/rateLimit';
 import { redis } from '../redis/redisClient';
 
 // `Socket.data`'s type comes from the 4th generic parameter, not from
@@ -67,13 +68,36 @@ export function createSocketServer(httpServer: HttpServer): SocketServerHandle {
       return;
     }
 
+    let payload: ReturnType<typeof verifyAccessToken>;
     try {
-      const payload = verifyAccessToken(token);
-      socket.data.user = { id: payload.sub, role: payload.role };
-      next();
+      payload = verifyAccessToken(token);
     } catch (error) {
       next(error instanceof Error ? error : new Error('Invalid access token.'));
+      return;
     }
+
+    // Per-user connection limit (Phase 14) — the SAME shared limiter every
+    // HTTP category uses, called as a plain function since there is no
+    // Express `req`/`res` here. A rejected connection never reaches
+    // `connection`, the same way a rejected/unauthenticated one doesn't.
+    void (async () => {
+      const key = `ratelimit:websocket-connect:${payload.sub}`;
+      const result = await consumeRateLimit(key, 60, config.rateLimits.websocketConnectPerMinute);
+
+      if (!result.allowed) {
+        next(
+          new AppError({
+            statusCode: 429,
+            code: 'RATE_LIMITED',
+            message: 'Too many connection attempts. Please try again shortly.',
+          }),
+        );
+        return;
+      }
+
+      socket.data.user = { id: payload.sub, role: payload.role };
+      next();
+    })();
   });
 
   // Multi-instance readiness (architecture.md §15): two DEDICATED
