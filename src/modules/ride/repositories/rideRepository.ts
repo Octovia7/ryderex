@@ -156,6 +156,20 @@ export async function findById(id: string): Promise<RideRecord | null> {
   return row ? toRideRecord(row) : null;
 }
 
+// The support chatbot's `getMyRecentRidesAsDriver` tool (architecture.md
+// §17) — the caller's own, 10 most recent, newest-first. A plain read;
+// result projection for the model happens in the support module, not here.
+export async function findRecentByDriverId(driverId: string, limit: number): Promise<RideRecord[]> {
+  const rows = await prisma.$queryRaw<RawRideRow[]>(Prisma.sql`
+    SELECT ${RIDE_COLUMNS} FROM rides
+    WHERE driver_id = ${driverId}::uuid
+    ORDER BY created_at DESC
+    LIMIT ${limit}::int
+  `);
+
+  return rows.map(toRideRecord);
+}
+
 // No coordinates needed, so the ordinary Prisma client is fine here.
 //
 // Takes a client (the base client, or a transaction client) so

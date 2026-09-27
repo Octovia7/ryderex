@@ -6,10 +6,10 @@ import { POSTING_COMMISSION_PERCENT } from './commissionService';
 // ratio is expressed against `POSTING_COMMISSION_PERCENT` (imported, never
 // re-declared) so 2 + 3 = 5 stays visibly true against whatever the
 // commission actually is, and so this can never silently drift from it.
-const DRIVER_EARLY_CANCEL_REFUND_PERCENT = 2;
+export const DRIVER_EARLY_CANCEL_REFUND_PERCENT = 2;
 
 // How far ahead of departure counts as "early" enough for a partial refund.
-const DRIVER_CANCEL_THRESHOLD_HOURS = 18;
+export const DRIVER_CANCEL_THRESHOLD_HOURS = 18;
 
 export interface DriverCancellationRefund {
   refundAmount: number;

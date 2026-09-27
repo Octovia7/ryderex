@@ -5,6 +5,11 @@ import * as rideSearchRepository from '../repositories/rideSearchRepository';
 import type { SearchRidesQuery } from '../schemas/searchRides.schema';
 import { decodeSearchCursor, encodeSearchCursor } from './rideSearchCursor';
 
+// Re-exported so other modules (the support chatbot's system prompt) can
+// read this business-rule constant through the service layer, never by
+// reaching into this module's repository directly (claude.md §3).
+export { SEARCH_RADIUS_METERS } from '../repositories/rideSearchRepository';
+
 // Deliberately lean — a search page can hold dozens of rides, so it carries
 // none of the ride's route geometry or the driver's commission.
 export interface RideSearchItemDto {

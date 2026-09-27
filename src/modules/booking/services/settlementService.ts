@@ -2,7 +2,7 @@
 // keeps the rest. A business rule, deliberately a constant rather than
 // configuration — the same reasoning as commissionService's
 // POSTING_COMMISSION_PERCENT and bookingService's PREPAYMENT_PERCENT.
-const PLATFORM_COMMISSION_PERCENT = 3;
+export const PLATFORM_COMMISSION_PERCENT = 3;
 
 // The one place §84's "application commission is calculated exactly once"
 // is computed (architecture.md "Settlement"). Not persisted anywhere — there

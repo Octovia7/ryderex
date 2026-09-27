@@ -152,6 +152,15 @@ export async function getRide(rideId: string): Promise<RideDto> {
   return toRideDto(ride);
 }
 
+// The support chatbot's `getMyRecentRidesAsDriver` tool (architecture.md
+// §17) — note there is no identity parameter for the model to supply;
+// `userId` always comes from the authenticated session, never a tool
+// argument.
+export async function getMyRecentRidesAsDriver(userId: string): Promise<RideDto[]> {
+  const rides = await rideRepository.findRecentByDriverId(userId, 10);
+  return rides.map(toRideDto);
+}
+
 // "Exists but isn't yours" and "doesn't exist" are indistinguishable to the
 // caller, so a non-owner always gets 404 — never 403 — and a ride's
 // existence is never leaked to other drivers.

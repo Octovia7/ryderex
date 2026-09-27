@@ -16,7 +16,7 @@ import type { CreateBookingInput } from '../schemas/createBooking.schema';
 import * as settlementService from './settlementService';
 
 // The passenger pays this share of the booking's total fare up front.
-const PREPAYMENT_PERCENT = 10;
+export const PREPAYMENT_PERCENT = 10;
 
 // The one place a booking's amounts are derived: totalFare = farePerSeat × seats,
 // prepaidAmount = round(totalFare × 10%). Worked in integer paise so a fare with
@@ -250,6 +250,14 @@ export async function getBooking(userId: string, bookingId: string): Promise<Boo
   }
 
   return toBookingDto(booking);
+}
+
+// The support chatbot's `getMyRecentBookings` tool (architecture.md §17) —
+// note there is no identity parameter for the model to supply; `userId`
+// always comes from the authenticated session, never a tool argument.
+export async function getMyRecentBookings(userId: string): Promise<BookingDto[]> {
+  const bookings = await bookingRepository.findRecentByPassengerId(userId, 10);
+  return bookings.map(toBookingDto);
 }
 
 // Cancel a booking and hand its seats back — ATOMICALLY: the status change and

@@ -13,6 +13,7 @@ import conversationRoutes from './modules/chat/routes';
 import notificationRoutes from './modules/notification/routes';
 import webhookRoutes from './modules/payment/routes';
 import rideRoutes from './modules/ride/routes';
+import supportRoutes from './modules/support/routes';
 import userRoutes from './modules/user/routes';
 import vehicleRoutes from './modules/vehicle/routes';
 
@@ -63,6 +64,7 @@ export function createApp(): Application {
   app.use('/api/v1/bookings', bookingRoutes);
   app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1/conversations', conversationRoutes);
+  app.use('/api/v1/support', supportRoutes);
   app.use('/api/v1/admin', adminRoutes);
 
   app.use(notFoundHandler);

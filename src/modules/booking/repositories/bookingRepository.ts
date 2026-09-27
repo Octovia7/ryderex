@@ -47,6 +47,18 @@ export function findById(id: string) {
   return prisma.booking.findUnique({ where: { id }, select: SELECT });
 }
 
+// The support chatbot's `getMyRecentBookings` tool (architecture.md §17) —
+// the caller's own, 10 most recent, newest-first. A plain read; result
+// projection for the model happens in the support module, not here.
+export function findRecentByPassengerId(passengerId: string, limit: number) {
+  return prisma.booking.findMany({
+    where: { passengerId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: SELECT,
+  });
+}
+
 // Conditional UPDATE: an order is attached exactly once. `count === 0` means
 // one is already attached (or the booking is gone) and nothing was overwritten.
 //

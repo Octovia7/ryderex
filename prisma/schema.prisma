@@ -159,6 +159,43 @@ enum NotificationType {
   @@map("notification_type")
 }
 
+// `RESOLVED`/`ESCALATED` plus SupportConversation's escalationReason/
+// escalatedAt exist so a future human-support queue needs no migration
+// (architecture.md §17). No escalation (or resolution) flow is
+// implemented — nothing sets either status today; every conversation stays
+// OPEN.
+enum SupportConversationStatus {
+  OPEN
+  RESOLVED
+  ESCALATED
+
+  @@map("support_conversation_status")
+}
+
+// SYSTEM exists in the schema for a future system-authored row (e.g. a
+// persisted system prompt) but nothing creates one today — the system
+// prompt is passed to the provider as `systemInstruction`, never as a
+// message row, the same "schema holds a decision without the workflow"
+// shape as SupportConversationStatus.ESCALATED.
+enum SupportMessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+
+  @@map("support_message_role")
+}
+
+// A turn that fails at the provider still persists an ASSISTANT row — with
+// no content — so the user's own message is never lost (architecture.md
+// §17). COMPLETED is every other message; FAILED marks that one.
+enum SupportMessageStatus {
+  COMPLETED
+  FAILED
+
+  @@map("support_message_status")
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -194,18 +231,19 @@ model User {
 
   refreshTokens              RefreshToken[]
   documents                  UserDocument[]
-  vehicles                   Vehicle[]        @relation("VehicleOwner")
-  verifiedVehicles           Vehicle[]        @relation("VehicleVerifier")
-  driverLicenseVerifier      User?            @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
-  driverLicenseVerifications User[]           @relation("DriverLicenseVerifier")
-  ridesDriven                Ride[]           @relation("RideDriver")
-  bookings                   Booking[]        @relation("BookingPassenger")
+  vehicles                   Vehicle[]             @relation("VehicleOwner")
+  verifiedVehicles           Vehicle[]             @relation("VehicleVerifier")
+  driverLicenseVerifier      User?                 @relation("DriverLicenseVerifier", fields: [driverLicenseVerifiedBy], references: [id], onDelete: SetNull)
+  driverLicenseVerifications User[]                @relation("DriverLicenseVerifier")
+  ridesDriven                Ride[]                @relation("RideDriver")
+  bookings                   Booking[]             @relation("BookingPassenger")
   idempotencyKeys            IdempotencyKey[]
   devices                    UserDevice[]
   notifications              Notification[]
-  conversationsAsDriver      Conversation[]   @relation("ConversationDriver")
-  conversationsAsPassenger   Conversation[]   @relation("ConversationPassenger")
+  conversationsAsDriver      Conversation[]        @relation("ConversationDriver")
+  conversationsAsPassenger   Conversation[]        @relation("ConversationPassenger")
   messagesSent               Message[]
+  supportConversations       SupportConversation[]
 
   @@map("users")
 }
@@ -609,4 +647,69 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+// The AI support chatbot's own conversation — entirely separate from
+// Conversation/Message above: different module, different transport (HTTP
+// only, no Socket.IO), no shared code (architecture.md §17: "Not the
+// driver↔passenger chat — different module, tables, transport").
+model SupportConversation {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  status SupportConversationStatus @default(OPEN)
+
+  escalationReason String?   @map("escalation_reason")
+  escalatedAt      DateTime? @map("escalated_at") @db.Timestamptz(3)
+
+  // Updated on every new message — the sort key for GET /support/conversations
+  // (most-recently-active first), unlike Conversation's own list which sorts
+  // by createdAt (nothing there ever updates it).
+  lastMessageAt DateTime @default(now()) @map("last_message_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@map("support_conversations")
+}
+
+// One row per turn-participant message: the caller's own, the assistant's
+// reply, or a tool's result — never edited after creation, even a FAILED one
+// (the outcome is known at persistence time, not discovered afterward).
+model SupportMessage {
+  id             String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+
+  role   SupportMessageRole
+  status SupportMessageStatus @default(COMPLETED)
+
+  // Null on an ASSISTANT row that only requested tool calls this turn (no
+  // text yet), and on a FAILED ASSISTANT row (nothing was generated).
+  content String?
+
+  // Only set on an ASSISTANT row that requested tool calls — an array of
+  // { id, name, arguments, providerState? }, persisted verbatim.
+  // `providerState` is deliberately opaque and vendor-specific (architecture.md
+  // §16: "AIToolCall.providerState... newer Gemini models reject a
+  // functionCall replayed on a later turn unless its original
+  // thought_signature is echoed back") — this service never interprets it,
+  // only stores and replays it exactly as the provider returned it.
+  toolCalls Json? @map("tool_calls")
+
+  // Only set on a TOOL row — which of the preceding ASSISTANT row's
+  // toolCalls this result answers.
+  toolCallId String? @map("tool_call_id")
+
+  totalTokens Int? @map("total_tokens")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("support_messages")
 }

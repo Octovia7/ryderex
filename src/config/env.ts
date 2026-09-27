@@ -115,6 +115,37 @@ const envSchema = z.object({
   // the escaped `\n` sequences a `.env` file (or most secret managers) store
   // this kind of multi-line PEM value as, back into real ones.
   FCM_PRIVATE_KEY: z.string().optional(),
+
+  // AI has the same "safe, degraded fallback" grade as Push (architecture.md
+  // §16): only one implementation exists today, but the env var — rather
+  // than a hard-coded choice — is what keeps the next provider swap a config
+  // change, the same reasoning as MAP_PROVIDER.
+  AI_PROVIDER: z.enum(['gemini']).default('gemini'),
+  // Left optional for local development without a Gemini account;
+  // GeminiProvider is only ever constructed when present, and
+  // ConsoleAIProvider (a canned reply, no tool calls) is used otherwise —
+  // degraded, not a boot refusal.
+  GEMINI_API_KEY: z.string().optional(),
+  // An alias, not a pinned version — `gemini-2.0-flash` was retired mid-
+  // development, and the *lite* alias specifically carries a far more
+  // generous free-tier daily quota than the flagship alias, which a support
+  // bot doing simple FAQ/tool-lookup work does not need.
+  GEMINI_MODEL: z.string().default('gemini-flash-lite-latest'),
+
+  // Cost-control ceilings for the support chatbot (architecture.md §17):
+  // message length, history window, bounded tool rounds, and provider
+  // timeout. None of these is a business rule — they are technical bounds,
+  // the same category as RIDE_SEARCH_MAX_LIMIT.
+  SUPPORT_CHAT_MAX_MESSAGE_LENGTH: z.coerce.number().int().positive().default(2000),
+  SUPPORT_CHAT_HISTORY_LIMIT: z.coerce.number().int().positive().default(20),
+  SUPPORT_CHAT_MAX_TOOL_ROUNDS: z.coerce.number().int().positive().default(2),
+  SUPPORT_CHAT_PROVIDER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(15),
+
+  // Per-user (architecture.md §17: "10/min + 50/day") — reuses the existing
+  // Redis rate-limit infrastructure (infrastructure/redis/rateLimit.ts), the
+  // same call shape otpService already uses, not a new limiter.
+  SUPPORT_CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  SUPPORT_CHAT_RATE_LIMIT_PER_DAY: z.coerce.number().int().positive().default(50),
 });
 
 function loadEnv() {
@@ -223,6 +254,19 @@ export const config = {
     projectId: env.FCM_PROJECT_ID,
     clientEmail: env.FCM_CLIENT_EMAIL,
     privateKey: env.FCM_PRIVATE_KEY,
+  },
+  ai: {
+    provider: env.AI_PROVIDER,
+    geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL,
+  },
+  supportChat: {
+    maxMessageLength: env.SUPPORT_CHAT_MAX_MESSAGE_LENGTH,
+    historyLimit: env.SUPPORT_CHAT_HISTORY_LIMIT,
+    maxToolRounds: env.SUPPORT_CHAT_MAX_TOOL_ROUNDS,
+    providerTimeoutSeconds: env.SUPPORT_CHAT_PROVIDER_TIMEOUT_SECONDS,
+    rateLimitPerMinute: env.SUPPORT_CHAT_RATE_LIMIT_PER_MINUTE,
+    rateLimitPerDay: env.SUPPORT_CHAT_RATE_LIMIT_PER_DAY,
   },
 } as const;
 

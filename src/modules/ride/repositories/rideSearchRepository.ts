@@ -6,7 +6,7 @@ import type { SearchSort } from '../schemas/searchRides.schema';
 
 // A ride matches when its origin is within this many metres of the pickup
 // point AND its destination is within the same distance of the drop point.
-const SEARCH_RADIUS_METERS = 10_000;
+export const SEARCH_RADIUS_METERS = 10_000;
 
 interface RawSearchRow {
   id: string;
