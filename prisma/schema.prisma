@@ -252,6 +252,8 @@ model User {
   conversationsAsPassenger   Conversation[]        @relation("ConversationPassenger")
   messagesSent               Message[]
   supportConversations       SupportConversation[]
+  ratingsGiven               Rating[]              @relation("RatingRater")
+  ratingsReceived            Rating[]              @relation("RatingRatee")
 
   @@map("users")
 }
@@ -380,6 +382,7 @@ model Ride {
   payments      Payment[]
   transactions  Transaction[]
   conversations Conversation[]
+  ratings       Rating[]
 
   @@index([driverId])
   @@index([vehicleId])
@@ -432,10 +435,48 @@ model Booking {
 
   payments     Payment[]
   transactions Transaction[]
+  ratings      Rating[]
 
   @@index([rideId])
   @@index([passengerId])
   @@map("bookings")
+}
+
+// One rating per participant per trip — a passenger rates the driver, or the
+// driver rates the passenger, over the SAME booking (architecture.md
+// "Ratings — the same two mechanisms, applied to an aggregate"). Direction is
+// derived from (booking, raterId) at write time, never stored as its own
+// column — raterId/rateeId already say who rated whom. `rideId` is a
+// denormalized copy of the parent booking's own, the same "carried at
+// creation, never joined through the parent" pattern Transaction already
+// uses for its own rideId/bookingId.
+//
+// Immutable — no updatedAt, and no update or delete path exists anywhere in
+// this codebase. `@@unique([bookingId, raterId])` is the sole duplicate
+// guard: a repeat submission is rejected outright (`409 ALREADY_RATED`),
+// never replayed like a payment Idempotency-Key — a rating is a one-time
+// opinion, not a retryable side effect.
+model Rating {
+  id        String @id @default(uuid()) @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  rideId    String @map("ride_id") @db.Uuid
+  raterId   String @map("rater_id") @db.Uuid
+  rateeId   String @map("ratee_id") @db.Uuid
+
+  // Plain integer, validated at the API layer (1-5) — deliberately not an
+  // enum (Phase 15.5 schema step).
+  score   Int
+  comment String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  ride    Ride    @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  rater   User    @relation("RatingRater", fields: [raterId], references: [id], onDelete: Cascade)
+  ratee   User    @relation("RatingRatee", fields: [rateeId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, raterId])
+  @@map("ratings")
 }
 
 // A gateway attempt: which provider, its order/payment ids, the amount, and
