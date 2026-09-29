@@ -94,3 +94,16 @@ export async function submitRating(
     throw error;
   }
 }
+
+// The GET counterpart — no new authorization policy: `bookingService.getBooking`
+// is the SAME participant check `submitRating` above relies on (booking exists
+// AND caller is its passenger or its ride's driver), so a non-participant gets
+// the identical `404 BOOKING_NOT_FOUND` here too, never a second, divergent
+// access rule for the same resource.
+export async function getRatingsForBooking(
+  userId: string,
+  bookingId: string,
+): Promise<RatingRecord[]> {
+  await bookingService.getBooking(userId, bookingId);
+  return ratingRepository.findByBookingId(prisma, bookingId);
+}

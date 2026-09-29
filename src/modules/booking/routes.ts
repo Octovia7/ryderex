@@ -2,7 +2,10 @@ import { Router } from 'express';
 import { config } from '../../config';
 import { rateLimit } from '../../infrastructure/redis/rateLimit';
 import { authenticate } from '../../middleware/authenticate';
+import { validateBody } from '../../middleware/validateBody';
 import { validateParams } from '../../middleware/validateParams';
+import * as ratingController from '../rating/controllers/ratingController';
+import { submitRatingSchema } from '../rating/schemas/submitRating.schema';
 import * as bookingController from './controllers/bookingController';
 import { bookingIdParamsSchema } from './schemas/bookingIdParams.schema';
 
@@ -34,6 +37,28 @@ router.post(
   authenticate,
   validateParams(bookingIdParamsSchema),
   bookingController.cancelBooking,
+);
+
+// No role gate and no rating-specific rate limiter (Phase 14 never defined
+// one for ratings — the shared `Idempotency-Key` pattern doesn't apply
+// either, since a repeat submission is a hard `409 ALREADY_RATED`, never a
+// replay). Participant authorization for both routes lives entirely in
+// ratingService, reusing bookingService's own "booking exists AND caller is
+// a participant" check — the same 404-not-403 IDOR convention as every
+// other route on this router.
+router.get(
+  '/:id/ratings',
+  authenticate,
+  authenticatedReadRateLimit,
+  validateParams(bookingIdParamsSchema),
+  ratingController.listRatingsForBooking,
+);
+router.post(
+  '/:id/ratings',
+  authenticate,
+  validateParams(bookingIdParamsSchema),
+  validateBody(submitRatingSchema),
+  ratingController.submitRating,
 );
 
 export default router;
