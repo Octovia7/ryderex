@@ -3,6 +3,7 @@ import {
   createWorkerConnection,
   PROCESS_REFUND_JOB_NAME,
   REFUND_QUEUE_NAME,
+  workerPollingOptions,
 } from '../../../infrastructure/queue';
 import type { RefundJobData } from '../../../infrastructure/queue';
 import { processRefund } from '../services/refundService';
@@ -22,7 +23,7 @@ export function createRefundWorker(): Worker<RefundJobData> {
 
       await processRefund(job.data.transactionId);
     },
-    { connection: createWorkerConnection() },
+    { connection: createWorkerConnection(), ...workerPollingOptions },
   );
 
   worker.on('failed', (job, error) => {

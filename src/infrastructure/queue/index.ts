@@ -1,4 +1,4 @@
-export { queueConnection, createWorkerConnection } from './queueConnection';
+export { queueConnection, createWorkerConnection, workerPollingOptions } from './queueConnection';
 export {
   bookingExpiryQueue,
   scheduleBookingExpiry,

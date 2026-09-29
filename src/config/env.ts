@@ -90,6 +90,22 @@ const envSchema = z.object({
   // the documented default.
   BOOKING_PAYMENT_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 
+  // Phase 16: how often each idle Worker re-polls Redis for delayed/stalled
+  // work (BullMQ's own `drainDelay`/`stalledInterval`, both in seconds here —
+  // BullMQ's own options take milliseconds). BullMQ's library defaults (5s
+  // drain, 30s stalled) cost roughly 478,000 Redis commands/day at rest on
+  // three idle Workers — billable traffic for doing nothing on a
+  // command-metered Redis plan. 300s measured at ~10,300/day idle, with
+  // delayed jobs (seat-hold expiry) still firing within ~300ms of schedule —
+  // `BZPOPMIN` wakes on push, so the drain delay never applies to a job
+  // actually being enqueued. The real trade-off is stalled-job recovery: a
+  // Worker that dies mid-job has its job reclaimed after up to
+  // `QUEUE_STALLED_INTERVAL_SECONDS` instead of BullMQ's 30s default —
+  // acceptable because every job here (release a seat, submit a refund,
+  // send a notification) is short.
+  QUEUE_DRAIN_DELAY_SECONDS: z.coerce.number().int().positive().default(300),
+  QUEUE_STALLED_INTERVAL_SECONDS: z.coerce.number().int().positive().default(300),
+
   // No safe fallback exists for a real payment gateway, same as Cloudinary —
   // left optional for local development without a Razorpay account;
   // RazorpayProvider is only ever constructed once both are present, and
@@ -333,6 +349,10 @@ export const config = {
   },
   booking: {
     paymentTtlSeconds: env.BOOKING_PAYMENT_TTL_SECONDS,
+  },
+  queue: {
+    drainDelaySeconds: env.QUEUE_DRAIN_DELAY_SECONDS,
+    stalledIntervalSeconds: env.QUEUE_STALLED_INTERVAL_SECONDS,
   },
   payments: {
     providerKey: env.PAYMENT_PROVIDER_KEY,

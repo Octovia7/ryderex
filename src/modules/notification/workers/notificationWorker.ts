@@ -3,6 +3,7 @@ import {
   createWorkerConnection,
   DELIVER_NOTIFICATION_JOB_NAME,
   NOTIFICATION_QUEUE_NAME,
+  workerPollingOptions,
 } from '../../../infrastructure/queue';
 import type { DeliverNotificationJobData } from '../../../infrastructure/queue';
 import { processNotificationJob } from '../services/notificationService';
@@ -22,7 +23,7 @@ export function createNotificationWorker(): Worker<DeliverNotificationJobData> {
 
       await processNotificationJob(job.data);
     },
-    { connection: createWorkerConnection() },
+    { connection: createWorkerConnection(), ...workerPollingOptions },
   );
 
   worker.on('failed', (job, error) => {

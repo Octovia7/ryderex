@@ -3,6 +3,7 @@ import {
   BOOKING_EXPIRY_QUEUE_NAME,
   createWorkerConnection,
   EXPIRE_BOOKING_JOB_NAME,
+  workerPollingOptions,
 } from '../../../infrastructure/queue';
 import type { ExpireBookingJobData } from '../../../infrastructure/queue';
 import { processBookingExpiry } from '../services/bookingExpiryService';
@@ -23,7 +24,7 @@ export function createBookingExpiryWorker(): Worker<ExpireBookingJobData> {
 
       await processBookingExpiry(job.data.bookingId);
     },
-    { connection: createWorkerConnection() },
+    { connection: createWorkerConnection(), ...workerPollingOptions },
   );
 
   worker.on('failed', (job, error) => {

@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import type { WorkerOptions } from 'bullmq';
 import { config } from '../../config';
 
 // BullMQ requires `maxRetriesPerRequest: null` on every connection it is given
@@ -39,3 +40,12 @@ export const queueConnection = createQueueRedisConnection();
 export function createWorkerConnection(): Redis {
   return createQueueRedisConnection();
 }
+
+// Phase 16: shared by all three Workers so the deployment-tuned polling
+// interval lives in exactly one place, never repeated per Worker. BullMQ's
+// own options are milliseconds; `config.queue.*` is seconds (matching every
+// other `*_SECONDS` env var in this codebase), converted once here.
+export const workerPollingOptions: Pick<WorkerOptions, 'drainDelay' | 'stalledInterval'> = {
+  drainDelay: config.queue.drainDelaySeconds * 1000,
+  stalledInterval: config.queue.stalledIntervalSeconds * 1000,
+};
