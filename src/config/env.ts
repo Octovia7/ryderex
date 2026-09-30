@@ -21,6 +21,15 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
+  // Phase 16: the `pg.Pool` behind the Prisma adapter (infrastructure/
+  // database/prismaClient.ts) was previously left at the `pg` library's own
+  // default (10) with no explicit setting anywhere in this codebase — this
+  // makes that number explicit and configurable, so a hosted Postgres plan
+  // with a lower connection cap (e.g. Supabase's free tier) can be sized
+  // deliberately rather than relying on an undocumented library default. 10
+  // is the default here specifically to preserve existing behavior exactly.
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+
   // Wired for the first time in the auth phase.
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
   JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
@@ -299,6 +308,7 @@ export const config = {
   corsOrigins: env.CORS_ORIGINS,
   database: {
     url: env.DATABASE_URL,
+    poolMax: env.DATABASE_POOL_MAX,
   },
   redis: {
     url: env.REDIS_URL,
