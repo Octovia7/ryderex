@@ -161,6 +161,16 @@ export async function getMyRecentRidesAsDriver(userId: string): Promise<RideDto[
   return rides.map(toRideDto);
 }
 
+// `GET /rides/mine` — every ride the caller drives, any lifecycle state.
+// Scoped by `driverId` alone, so a passenger calling this simply gets an
+// empty list rather than needing a role gate — the same "ownership scoping
+// over role-gating" convention `/:id` and the cancel/start/complete routes
+// already use.
+export async function getMyRides(userId: string): Promise<RideDto[]> {
+  const rides = await rideRepository.findByDriverId(userId);
+  return rides.map(toRideDto);
+}
+
 // "Exists but isn't yours" and "doesn't exist" are indistinguishable to the
 // caller, so a non-owner always gets 404 — never 403 — and a ride's
 // existence is never leaked to other drivers.

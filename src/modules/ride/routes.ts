@@ -70,6 +70,10 @@ router.get(
   validateQuery(searchRidesQuerySchema),
   rideController.searchRides,
 );
+// Registered BEFORE `/:id` for the same reason as `/search` above: declared
+// after it, `mine` would be captured as an `:id` value and rejected as a bad
+// UUID.
+router.get('/mine', authenticate, authenticatedReadRateLimit, rideController.getMyRides);
 router.get(
   '/:id',
   authenticate,

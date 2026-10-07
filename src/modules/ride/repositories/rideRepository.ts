@@ -170,6 +170,23 @@ export async function findRecentByDriverId(driverId: string, limit: number): Pro
   return rows.map(toRideRecord);
 }
 
+// `GET /rides/mine` — the caller's own rides, every lifecycle state included
+// (unlike `/search`, which deliberately excludes PENDING_PAYMENT). No limit:
+// unlike the chatbot tool above, a driver's own ride history isn't bounded
+// for prompt-size reasons, and the vehicle module's equivalent "my own X"
+// listing (`listOwnVehicles`) is likewise unpaginated — a driver's ride
+// count stays small enough that cursor pagination (reserved for the
+// cross-driver `/search` endpoint) would be premature here.
+export async function findByDriverId(driverId: string): Promise<RideRecord[]> {
+  const rows = await prisma.$queryRaw<RawRideRow[]>(Prisma.sql`
+    SELECT ${RIDE_COLUMNS} FROM rides
+    WHERE driver_id = ${driverId}::uuid
+    ORDER BY created_at DESC
+  `);
+
+  return rows.map(toRideRecord);
+}
+
 // No coordinates needed, so the ordinary Prisma client is fine here.
 //
 // Takes a client (the base client, or a transaction client) so

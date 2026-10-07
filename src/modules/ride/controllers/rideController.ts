@@ -24,6 +24,11 @@ export async function getRide(req: Request, res: Response): Promise<void> {
   sendSuccess(res, ride);
 }
 
+export async function getMyRides(req: Request, res: Response): Promise<void> {
+  const rides = await rideService.getMyRides(req.user!.id);
+  sendSuccess(res, { items: rides });
+}
+
 export async function startRide(req: Request, res: Response): Promise<void> {
   const { id } = req.params as unknown as RideIdParams;
   const ride = await rideService.startRide(req.user!.id, id);
