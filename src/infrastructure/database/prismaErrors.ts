@@ -82,3 +82,43 @@ export function getUniqueConstraintFields(error: unknown): string[] | null {
 
   return null;
 }
+
+/**
+ * Extracts the violated index's RAW Postgres name from a Prisma P2002
+ * error — for a caller identifying one specific index, rather than mapping
+ * it to a Prisma schema field (getUniqueConstraintFields above cannot help
+ * here: it only recognizes Prisma's own `<table>_<column>_key` naming,
+ * which doesn't apply to a hand-written index with no `@@unique` in
+ * schema.prisma at all, e.g. bookingRepository.create's partial unique
+ * index on active bookings).
+ *
+ * Reuses the same verified shape getUniqueConstraintFields documents:
+ * this project's actual Prisma 7.10.0 + `@prisma/adapter-pg` reports the
+ * index name at `meta.driverAdapterError.cause.constraint.index`. Returns
+ * null for any other shape (including the pre-driver-adapter `meta.target`
+ * array, which is Prisma's own field-name reporting and has nothing
+ * meaningful to say about an index Prisma doesn't know exists) — a caller
+ * must treat null as "could not positively identify this constraint" and
+ * never guess, so an unrelated P2002 (e.g. a primary-key collision) is
+ * never misclassified as the one specific violation being checked for.
+ */
+export function getUniqueConstraintIndexName(error: unknown): string | null {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return null;
+  }
+
+  if (error.code !== UNIQUE_CONSTRAINT_VIOLATION) {
+    return null;
+  }
+
+  const meta = error.meta;
+  if (!isRecord(meta)) {
+    return null;
+  }
+
+  const driverAdapterError = meta.driverAdapterError;
+  const cause = isRecord(driverAdapterError) ? driverAdapterError.cause : undefined;
+  const constraint = isRecord(cause) ? cause.constraint : undefined;
+
+  return isRecord(constraint) && typeof constraint.index === 'string' ? constraint.index : null;
+}

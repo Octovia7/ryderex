@@ -828,12 +828,44 @@ check and cancel, letting a passenger dodge the final 90% payment.
 creation from the ride's persisted fare. Nothing recalculates them. Changing
 `FARE_PRICE_PER_KM` tomorrow cannot alter what an existing booking owes.
 
+### Active-booking uniqueness
+
+A passenger may have at most one `PENDING_PAYMENT` or `CONFIRMED` booking for
+a given ride at a time. Enforced by a **partial unique index** on
+`bookings(ride_id, passenger_id) WHERE status IN ('PENDING_PAYMENT',
+'CONFIRMED')` — not a table-wide constraint, and not an application-level
+pre-check (a `SELECT`-then-`INSERT` check has a TOCTOU window two concurrent
+requests can both pass; the index is what actually arbitrates the race, the
+same way every other duplicate-prevention mechanism in this document does).
+
+Scoped to those two statuses deliberately: `CANCELLED` and `PAYMENT_FAILED`
+are permanent dead ends for that specific row — there is no retry or
+reactivate endpoint for either — so a passenger must still be able to create
+a brand-new booking once an earlier one on the same ride reaches either
+state. The violated insert surfaces as Prisma's `P2002`; `createBooking`
+identifies it by the index's own name (never by assuming any `P2002` inside
+that transaction means this) and rejects with `409 ALREADY_BOOKED`. The
+insert runs in the same transaction as `reserveSeats`, so a rejected
+duplicate rolls the seat reservation back with it — no seat is ever left
+stuck held for a booking that didn't commit.
+
+This index is hand-written directly into its migration's SQL
+(`20261013090000_booking_active_per_passenger_unique`) and has **no
+representation in `schema.prisma`** — Prisma's schema DSL cannot express a
+partial index's `WHERE` predicate. This is the exact same hazard as the
+`rides` table's GiST indexes (§13 in `claude.md`): Prisma has no record this
+index exists and will propose dropping it on any later migration touching
+`bookings`. Always `prisma migrate dev --create-only`, read the generated
+SQL, and strip any `DROP INDEX "bookings_active_ride_passenger_key"` line
+before applying.
+
 ### Concurrency scenario matrix
 
 | Scenario | Mechanism | Verified |
 |---|---|---|
 | Two passengers, last seat | Conditional UPDATE with seat guard | ✅ 6 parallel processes |
 | Duplicate booking/ride request | `IdempotencyKey` UNIQUE + response replay | ✅ 4 concurrent, same key |
+| Duplicate active booking (same passenger, same ride) | Partial UNIQUE index `(ride_id, passenger_id) WHERE status IN (...)`, same tx as seat reservation | ⚠️ Index DDL + concurrent-insert blocking verified against a throwaway standalone Postgres instance (not this app's database); **not yet exercised against the running application or a real deployed database** |
 | Duplicate payment webhook | `Payment.status` only transitions from `CREATED` | ✅ 8 concurrent deliveries |
 | Duplicate refund job | `jobId` dedupe + `PENDING`-only + pre-provider status re-read | ✅ 3× concurrent |
 | Refresh-token reuse | Transactional lookup-and-revoke on a unique hash | ✅ 5 concurrent rotations |
@@ -882,6 +914,17 @@ otherwise                       →  404  (never 403 — don't confirm the booki
 The request body carries a score and nothing else. There is no `rateeId` field
 to spoof, which is the same reasoning that keeps identity out of the AI tool
 schemas (§17).
+
+**How a driver discovers which bookings to rate.** `GET /api/v1/rides/:id/bookings`
+— role-gated `DRIVER`, ownership re-checked in the service (404, never 403,
+the ride's owner alone). Newest-first, keyset-paginated, the same cursor
+shape as `GET /bookings`. Deliberately lean, the same "no payment
+identifiers, no contact details" discipline as every other DTO in this
+document: `{ id, passengerId, passengerName, seats, status, createdAt }`
+per booking — enough to identify who to rate and with which booking id,
+nothing about fare, payment, or how to reach them. This is a read; it does
+not gate or confirm rating eligibility itself — `POST .../ratings`'s own
+`ride.status = COMPLETED` check above is still what actually decides that.
 
 Ratings hang off the **booking**, not the ride, because a booking is exactly the
 unit through which two people shared a trip — which is what makes "one rating per
@@ -1243,9 +1286,15 @@ sockets never reach a handler.
 
 **Two layers, because there are two kinds of answer.**
 
-**Layer 1 — role gates (`authorize`), used sparingly.** Only where an entire
-capability belongs to a role: `POST /rides` (DRIVER), `POST /vehicles` (DRIVER),
-the whole `/admin` router (ADMIN).
+**Layer 1 — role gates (`authorize`), used sparingly.** Two kinds: capability
+gates, where an entire capability belongs to one role — `POST /rides`
+(DRIVER), `POST /vehicles` (DRIVER), the whole `/admin` router (ADMIN); and an
+account-type gate on the passenger-facing surface — `GET /rides/search`,
+`GET /rides/:id`, `POST /rides/:id/bookings`, `GET /bookings/:id`,
+`POST /bookings/:id/cancel`, `GET|POST /bookings/:id/ratings` all carry
+`authorize('PASSENGER', 'DRIVER')`. A driver is still a passenger when they
+haven't posted a ride, so this excludes only `ADMIN`, which has no
+customer-facing capability at all.
 
 **Layer 2 — ownership checks in services, used everywhere else.** Authorization
 for a *resource* depends on data, so it lives with the data:
@@ -1728,7 +1777,7 @@ no driver messages, no SQL.
 | 401 | `UNAUTHORIZED`, `REFRESH_TOKEN_EXPIRED`, `REFRESH_TOKEN_REUSE_DETECTED`, `INVALID_WEBHOOK_SIGNATURE` |
 | 403 | `FORBIDDEN`, `ACCOUNT_SUSPENDED` |
 | 404 | `RIDE_NOT_FOUND`, `BOOKING_NOT_FOUND`, `VEHICLE_NOT_FOUND`, `CONVERSATION_NOT_FOUND`, `SUPPORT_CONVERSATION_NOT_FOUND`, `USER_NOT_FOUND`, `NOTIFICATION_NOT_FOUND`, `PAYMENT_NOT_FOUND` |
-| 409 | `INVALID_RIDE_STATE`, `NO_SEATS_AVAILABLE`, `RIDE_NOT_BOOKABLE`, `BOOKING_NOT_CANCELLABLE`, `BOOKING_ALREADY_CANCELLED`, `CANNOT_BOOK_OWN_RIDE`, `VEHICLE_NOT_ELIGIBLE`, `EMAIL_ALREADY_IN_USE`, `PHONE_ALREADY_IN_USE`, `IDEMPOTENCY_CONFLICT`, `IDEMPOTENCY_KEY_IN_PROGRESS` |
+| 409 | `INVALID_RIDE_STATE`, `NO_SEATS_AVAILABLE`, `RIDE_NOT_BOOKABLE`, `ALREADY_BOOKED`, `BOOKING_NOT_CANCELLABLE`, `BOOKING_ALREADY_CANCELLED`, `CANNOT_BOOK_OWN_RIDE`, `VEHICLE_NOT_ELIGIBLE`, `EMAIL_ALREADY_IN_USE`, `PHONE_ALREADY_IN_USE`, `IDEMPOTENCY_CONFLICT`, `IDEMPOTENCY_KEY_IN_PROGRESS` |
 | 413 | `PAYLOAD_TOO_LARGE`, `FILE_TOO_LARGE` |
 | 429 | `RATE_LIMITED`, `OTP_RESEND_COOLDOWN`, `SUPPORT_CHAT_RATE_LIMITED`, `SUPPORT_CHAT_DAILY_LIMIT_REACHED` |
 | 502 | `MAP_PROVIDER_ERROR`, `EMAIL_SEND_FAILED`, `AI_PROVIDER_ERROR`, `PUSH_DELIVERY_FAILED` |

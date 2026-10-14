@@ -227,8 +227,11 @@ users.email · users.phone · vehicles.registration_number · refresh_tokens.tok
 - Never check suspension on `request-otp` — it would confirm the account exists.
 
 Authorization has two layers. **Role gates** (`authorize`) only where a whole
-capability is role-scoped: `POST /rides`, `POST /vehicles`, all of `/admin`.
-**Ownership checks in services** everywhere else:
+capability is role-scoped: `POST /rides`, `POST /vehicles`, all of `/admin` —
+plus an account-type gate, `authorize('PASSENGER', 'DRIVER')`, on the
+passenger-facing surface (ride search/read, booking create/read/cancel,
+ratings), since a driver is still a passenger and only `ADMIN` has no
+customer-facing capability. **Ownership checks in services** everywhere else:
 
 ```ts
 if (!resource || resource.ownerId !== userId) {
@@ -371,6 +374,21 @@ Use `CREATE INDEX IF NOT EXISTS` when re-adding them, and re-check with
 `EXPLAIN ANALYZE`. Never edit an applied migration without correcting its stored
 checksum.
 
+`IF NOT EXISTS` only guards against a NAME collision — PostgreSQL does not
+verify that a pre-existing same-named index actually has the expected
+columns, uniqueness, or (for a partial index) the expected `WHERE`
+predicate. A same-named but wrongly-defined index would make the statement
+silently no-op, leaving the wrong constraint in place with no error.
+
+**A second instance of the same hazard, not a different one.**
+`bookings_active_ride_passenger_key` — the partial unique index enforcing at
+most one active (`PENDING_PAYMENT`/`CONFIRMED`) booking per passenger per
+ride (architecture.md's "Active-booking uniqueness") — has a `WHERE`
+predicate, which Prisma's schema DSL cannot express at all, so it has **zero**
+representation in `schema.prisma`. The same `--create-only` → strip the
+proposed `DROP INDEX "bookings_active_ride_passenger_key"` line → apply
+workflow is required on any migration touching `bookings`, not only `rides`.
+
 ---
 
 ## 14. Working conventions
@@ -416,6 +434,7 @@ Each of these was a real bug. The full accounts are in `steps.md` §19.
 | Trap | Rule |
 |---|---|
 | Prisma drops the `rides` GiST indexes | Always `migrate dev --create-only`, strip the `DROP INDEX` lines (§13) |
+| Prisma drops `bookings_active_ride_passenger_key` (partial unique index, no `@@unique` can express its `WHERE`) | Same `--create-only` / strip-the-`DROP INDEX` convention (§13) |
 | Workers sharing a Redis connection | A blocking `BZPOPMIN` monopolises its socket; after an outage one worker's loop never resumes — silently, still reporting `isRunning() === true` |
 | ioredis buffers while disconnected | Without `commandTimeout` an outage hangs requests instead of failing them |
 | `firebase-admin` `cert()` throws synchronously | Wrap provider construction — a malformed key once killed the whole process at import |

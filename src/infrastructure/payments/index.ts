@@ -25,6 +25,16 @@ export type {
 export const providerName: 'razorpay' | 'stub' =
   config.payments.providerKey && config.payments.providerSecret ? 'razorpay' : 'stub';
 
+// The Razorpay `key_id` only — never `providerSecret`. Razorpay's own
+// Checkout.js contract requires this client-side to open the payment
+// modal; it is designed to be public (it authenticates nothing by itself,
+// unlike the secret), but until now nothing exported it past this factory.
+// `null` whenever `providerName` isn't 'razorpay' (Stub has no real key to
+// hand out), same condition as providerName itself so the two can never
+// disagree.
+export const providerKeyId: string | null =
+  providerName === 'razorpay' ? (config.payments.providerKey as string) : null;
+
 // Phase 15 (architecture.md's own fallback-safety table: "Payment... No safe
 // fallback — boot refuses"): StubPaymentProvider is fine in development,
 // but silently degrading to it in production means real bookings with no

@@ -416,6 +416,30 @@ model Booking {
 
   status BookingStatus @default(PENDING_PAYMENT)
 
+  // At most one PENDING_PAYMENT or CONFIRMED booking per (ride, passenger) —
+  // enforced by a PARTIAL UNIQUE INDEX hand-written into migration
+  // 20261013090000_booking_active_per_passenger_unique/migration.sql, not
+  // declared here. Prisma's schema DSL has no syntax for a `WHERE` predicate
+  // on an index (no `@@unique` here would faithfully represent it — a plain
+  // one would be a DIFFERENT, stricter constraint than what's actually in
+  // the database), so Prisma has no record this index exists and WILL
+  // propose dropping it on any later migration touching "bookings" — the
+  // exact same hazard, and the exact same fix, as the `rides` GiST indexes
+  // above (`origin`/`destination`): always `prisma migrate dev
+  // --create-only`, read the generated SQL, strip any `DROP INDEX
+  // "bookings_active_ride_passenger_key"` line, before applying. See
+  // docs/claude.md §13.
+  //
+  // Scoped to PENDING_PAYMENT/CONFIRMED only, not table-wide: CANCELLED and
+  // PAYMENT_FAILED are permanent dead ends for that row (no retry/reactivate
+  // endpoint exists for either), so a passenger must be able to create a
+  // NEW booking once an earlier one on this ride reaches either state. A
+  // violation surfaces as Prisma P2002 and is translated to `409
+  // ALREADY_BOOKED` by bookingService.createBooking, identified by this
+  // index's name specifically (src/infrastructure/database/prismaErrors.ts's
+  // getUniqueConstraintIndexName) — never by assuming any P2002 here means
+  // this.
+
   // The payment provider's reference for the prepayment order. Null between the
   // booking committing and the order being attached — the order is created
   // AFTER the seat-reservation transaction, never inside it.

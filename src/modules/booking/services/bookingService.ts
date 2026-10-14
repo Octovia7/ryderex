@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '../../../generated/prisma/client';
 import type { BookingStatus } from '../../../generated/prisma/enums';
+import { getUniqueConstraintIndexName } from '../../../infrastructure/database/prismaErrors';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import type { Coordinates } from '../../../infrastructure/maps';
-import { paymentProvider, providerName } from '../../../infrastructure/payments';
+import { paymentProvider, providerKeyId, providerName } from '../../../infrastructure/payments';
 import { scheduleBookingExpiry } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as conversationService from '../../chat/services/conversationService';
@@ -13,7 +14,14 @@ import * as rideService from '../../ride/services/rideService';
 import * as bookingRepository from '../repositories/bookingRepository';
 import { cancelScheduledBookingExpiry } from './bookingExpiryService';
 import type { CreateBookingInput } from '../schemas/createBooking.schema';
+import type { ListBookingsQuery } from '../schemas/listBookings.schema';
+import { decodeBookingCursor, encodeBookingCursor } from './bookingCursor';
 import * as settlementService from './settlementService';
+
+// A page above this is clamped, never rejected — same shape and value as
+// notificationQueryService's own ceiling (a local constant, since nothing in
+// the canonical docs calls for an env-configurable one here).
+const MAX_LIST_LIMIT = 50;
 
 // The passenger pays this share of the booking's total fare up front.
 export const PREPAYMENT_PERCENT = 10;
@@ -85,6 +93,22 @@ function bookingNotFound(): AppError {
   });
 }
 
+// The exact name of the hand-written partial unique index from migration
+// 20261013090000_booking_active_per_passenger_unique (see schema.prisma's
+// Booking.status comment for why it isn't declared there). Checked by name,
+// never by "any P2002 inside this transaction must be this" — the booking
+// row also has its own primary key, and a positive identification is what
+// keeps an unrelated violation from being misclassified as ALREADY_BOOKED.
+const ACTIVE_BOOKING_UNIQUE_INDEX = 'bookings_active_ride_passenger_key';
+
+function alreadyBooked(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: 'ALREADY_BOOKED',
+    message: 'You already have an active booking for this ride.',
+  });
+}
+
 // The seat hold IS the booking row: seats are taken when the booking is created,
 // not when it is paid, because holding at payment would let two passengers reach
 // a payment screen for the same last seat and turn a clean 409 into a refund.
@@ -139,41 +163,58 @@ export async function createBooking(
 
   const bookingId = randomUUID();
 
-  const outcome = await prisma.$transaction(async (tx) => {
-    const reserved = await rideService.reserveSeats(tx, rideId, input.seats);
+  let outcome: { kind: 'no_seats' } | { kind: 'created'; booking: BookingRecord };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const reserved = await rideService.reserveSeats(tx, rideId, input.seats);
 
-    if (!reserved) {
-      return { kind: 'no_seats' } as const;
-    }
+      if (!reserved) {
+        return { kind: 'no_seats' } as const;
+      }
 
-    const { totalFare, prepaidAmount } = calculateBookingAmounts(reserved.farePerSeat, input.seats);
+      const { totalFare, prepaidAmount } = calculateBookingAmounts(reserved.farePerSeat, input.seats);
 
-    // A point the passenger did not supply is the ride's own origin / destination.
-    const pickup =
-      input.pickupLat !== undefined && input.pickupLng !== undefined
-        ? { lat: input.pickupLat, lng: input.pickupLng }
-        : reserved.origin;
-    const drop =
-      input.dropLat !== undefined && input.dropLng !== undefined
-        ? { lat: input.dropLat, lng: input.dropLng }
-        : reserved.destination;
+      // A point the passenger did not supply is the ride's own origin / destination.
+      const pickup =
+        input.pickupLat !== undefined && input.pickupLng !== undefined
+          ? { lat: input.pickupLat, lng: input.pickupLng }
+          : reserved.origin;
+      const drop =
+        input.dropLat !== undefined && input.dropLng !== undefined
+          ? { lat: input.dropLat, lng: input.dropLng }
+          : reserved.destination;
 
-    const booking = await bookingRepository.create(tx, {
-      id: bookingId,
-      rideId,
-      passengerId,
-      seats: input.seats,
-      farePerSeat: reserved.farePerSeat,
-      totalFare,
-      prepaidAmount,
-      pickupLat: pickup.lat,
-      pickupLng: pickup.lng,
-      dropLat: drop.lat,
-      dropLng: drop.lng,
+      // If this throws (the active-booking unique index below), the whole
+      // transaction rolls back — the reserveSeats UPDATE above included —
+      // so a rejected duplicate never leaves a seat stuck reserved.
+      const booking = await bookingRepository.create(tx, {
+        id: bookingId,
+        rideId,
+        passengerId,
+        seats: input.seats,
+        farePerSeat: reserved.farePerSeat,
+        totalFare,
+        prepaidAmount,
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        dropLat: drop.lat,
+        dropLng: drop.lng,
+      });
+
+      return { kind: 'created', booking } as const;
     });
-
-    return { kind: 'created', booking } as const;
-  });
+  } catch (error) {
+    // Not a pre-check: the unique index IS the concurrency guarantee — two
+    // concurrent attempts both pass the advisory status checks above, both
+    // reach this insert, and the database's own index arbitrates which one
+    // commits. A pre-check here would only move the TOCTOU window, not
+    // close it (the same reasoning reserveSeats' own conditional UPDATE
+    // already follows, one function up).
+    if (getUniqueConstraintIndexName(error) === ACTIVE_BOOKING_UNIQUE_INDEX) {
+      throw alreadyBooked();
+    }
+    throw error;
+  }
 
   if (outcome.kind === 'no_seats') {
     throw new AppError({
@@ -252,12 +293,193 @@ export async function getBooking(userId: string, bookingId: string): Promise<Boo
   return toBookingDto(booking);
 }
 
+export interface CheckoutDetails {
+  keyId: string;
+  orderId: string;
+  // Integer paise — the authoritative amount the existing Razorpay order
+  // was actually created with, never recomputed from anything client-sent.
+  // `prepaidAmount` is locked at booking creation and is the exact same
+  // value `createBooking` passed into `paymentProvider.createOrder` (which
+  // itself converts rupees -> paise via `Math.round(amount * 100)` — see
+  // RazorpayProvider.createOrder); reapplying that identical conversion
+  // here, against that same immutable figure, reproduces the order's real
+  // amount exactly, without a second query against the Payment table.
+  amount: number;
+  currency: 'INR';
+}
+
+function checkoutNotAvailable(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: 'CHECKOUT_NOT_AVAILABLE',
+    message: 'Checkout is not available for this booking right now.',
+  });
+}
+
+// Available only to the passenger who owns this booking — never the ride's
+// driver, who is not the one paying the prepayment (unlike getBooking
+// above, which both may read). Same 404-not-403 IDOR convention as every
+// other resource here. A pure read: no order is created or modified, so
+// calling this any number of times is inherently safe.
+export async function getCheckoutDetails(
+  passengerId: string,
+  bookingId: string,
+): Promise<CheckoutDetails> {
+  const booking = await bookingRepository.findById(bookingId);
+
+  if (!booking || booking.passengerId !== passengerId) {
+    throw bookingNotFound();
+  }
+
+  if (
+    booking.status !== 'PENDING_PAYMENT' ||
+    !booking.paymentOrderId ||
+    providerName !== 'razorpay' ||
+    !providerKeyId
+  ) {
+    throw checkoutNotAvailable();
+  }
+
+  return {
+    keyId: providerKeyId,
+    orderId: booking.paymentOrderId,
+    amount: Math.round(Number(booking.prepaidAmount) * 100),
+    currency: 'INR',
+  };
+}
+
 // The support chatbot's `getMyRecentBookings` tool (architecture.md §17) —
 // note there is no identity parameter for the model to supply; `userId`
 // always comes from the authenticated session, never a tool argument.
 export async function getMyRecentBookings(userId: string): Promise<BookingDto[]> {
   const bookings = await bookingRepository.findRecentByPassengerId(userId, 10);
   return bookings.map(toBookingDto);
+}
+
+export interface BookingPage {
+  items: BookingDto[];
+  // Opaque; hand it back verbatim as `cursor` to get the next page. null when
+  // this is the last page.
+  nextCursor: string | null;
+}
+
+// Newest-first, keyset-paginated, scoped to the caller's own bookings only —
+// the exact same shape as notificationQueryService.listNotifications.
+// `passengerId` comes from the authenticated session (req.user.id), never a
+// query/body parameter, so this can never return another user's rows. A
+// DRIVER's own past bookings-as-passenger are included on equal footing with
+// a PASSENGER's, since `passengerId` is just whoever created the booking,
+// regardless of role — the same "a driver is still a passenger" model the
+// route guard already applies.
+//
+// Deliberately returns the exact same lean BookingDto as getBooking/
+// cancelBooking above, not enriched with ride/driver details: joining
+// against the ride module's own data here would mean either reaching into
+// its repository directly (crossing the module boundary every other
+// cross-module call in this codebase goes through a service for) or an
+// extra service call per row inside this one list endpoint. Neither matches
+// how any other list/read endpoint here is built — rideSearchService's own
+// DTO is "deliberately lean" for the identical reason. A consumer that wants
+// ride details already has GET /rides/:id to fetch them per item.
+export async function listBookings(
+  passengerId: string,
+  query: ListBookingsQuery,
+): Promise<BookingPage> {
+  const after = query.cursor === undefined ? undefined : decodeBookingCursor(query.cursor);
+  const limit = Math.min(query.limit, MAX_LIST_LIMIT);
+
+  // One row more than the page: if it comes back, another page exists — no
+  // second COUNT(*) query needed to know (same trick as rideSearchService
+  // and notificationQueryService).
+  const rows = await bookingRepository.findByPassengerId(prisma, passengerId, {
+    limit: limit + 1,
+    after,
+  });
+
+  const pageRows = rows.slice(0, limit);
+  const lastRow = pageRows[pageRows.length - 1];
+
+  const nextCursor =
+    rows.length > limit && lastRow
+      ? encodeBookingCursor({ createdAt: lastRow.createdAt, id: lastRow.id })
+      : null;
+
+  return { items: pageRows.map(toBookingDto), nextCursor };
+}
+
+// Deliberately lean — a driver's own read of who booked their ride
+// (eventually, who they may rate per booking), never a payment or fare
+// view: no fare, no payment identifiers, no passenger email/phone. All of
+// those are left out at the repository's own SELECT, not fetched and
+// discarded here.
+export interface RideBookingDto {
+  id: string;
+  passengerId: string;
+  passengerName: string;
+  seats: number;
+  status: BookingStatus;
+  createdAt: Date;
+}
+
+export interface RideBookingPage {
+  items: RideBookingDto[];
+  nextCursor: string | null;
+}
+
+function rideNotFoundForOwner(): AppError {
+  // Same code/message rideService's own rideNotFound() uses — this module
+  // never imports that private helper, but the contract must match exactly:
+  // "exists but isn't yours" and "doesn't exist" stay indistinguishable to
+  // the caller regardless of which module's code path answers.
+  return new AppError({ statusCode: 404, code: 'RIDE_NOT_FOUND', message: 'Ride not found.' });
+}
+
+// GET /rides/:id/bookings — routed on the ride resource (like createBooking
+// above) but implemented here, since bookings are this module's own data.
+// Ownership reuses rideService.getRideForBooking, the exact same minimal
+// cross-module lookup createBooking already calls — the ride module never
+// needs a second, bespoke "does this driver own this ride" entry point.
+// 404 RIDE_NOT_FOUND for both a nonexistent ride and one that exists but
+// isn't the caller's — the same 404-not-403 IDOR convention as every other
+// owner-scoped resource in this codebase.
+export async function listBookingsForRide(
+  driverId: string,
+  rideId: string,
+  query: ListBookingsQuery,
+): Promise<RideBookingPage> {
+  const ride = await rideService.getRideForBooking(rideId, prisma);
+
+  if (ride.driverId !== driverId) {
+    throw rideNotFoundForOwner();
+  }
+
+  const after = query.cursor === undefined ? undefined : decodeBookingCursor(query.cursor);
+  const limit = Math.min(query.limit, MAX_LIST_LIMIT);
+
+  const rows = await bookingRepository.findByRideId(prisma, rideId, {
+    limit: limit + 1,
+    after,
+  });
+
+  const pageRows = rows.slice(0, limit);
+  const lastRow = pageRows[pageRows.length - 1];
+
+  const nextCursor =
+    rows.length > limit && lastRow
+      ? encodeBookingCursor({ createdAt: lastRow.createdAt, id: lastRow.id })
+      : null;
+
+  return {
+    items: pageRows.map((row) => ({
+      id: row.id,
+      passengerId: row.passengerId,
+      passengerName: row.passenger.name,
+      seats: row.seats,
+      status: row.status,
+      createdAt: row.createdAt,
+    })),
+    nextCursor,
+  };
 }
 
 // Cancel a booking and hand its seats back — ATOMICALLY: the status change and

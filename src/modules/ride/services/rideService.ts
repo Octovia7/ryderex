@@ -4,7 +4,7 @@ import type { RideStatus } from '../../../generated/prisma/enums';
 import { prisma } from '../../../infrastructure/database/prismaClient';
 import { mapProvider } from '../../../infrastructure/maps';
 import type { Coordinates } from '../../../infrastructure/maps';
-import { paymentProvider, providerName } from '../../../infrastructure/payments';
+import { paymentProvider, providerKeyId, providerName } from '../../../infrastructure/payments';
 import { scheduleRefund } from '../../../infrastructure/queue';
 import { AppError } from '../../../shared/AppError';
 import * as bookingService from '../../booking/services/bookingService';
@@ -150,6 +150,61 @@ export async function getRide(rideId: string): Promise<RideDto> {
   }
 
   return toRideDto(ride);
+}
+
+export interface RideCheckoutDetails {
+  keyId: string;
+  orderId: string;
+  // Integer paise — the authoritative amount the existing Razorpay order
+  // was actually created with, never recomputed from anything client-sent.
+  // `postingCommissionAmount` is computed once at ride creation and is the
+  // exact same value passed into `paymentProvider.createOrder` (which
+  // itself converts rupees -> paise via `Math.round(amount * 100)` — see
+  // RazorpayProvider.createOrder); reapplying that identical conversion
+  // against that same immutable figure reproduces the order's real amount
+  // exactly, with no second query against the Payment table.
+  amount: number;
+  currency: 'INR';
+}
+
+function checkoutNotAvailable(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: 'CHECKOUT_NOT_AVAILABLE',
+    message: 'Checkout is not available for this ride right now.',
+  });
+}
+
+// Unlike getRide above (readable by anyone), checkout details are the
+// owning DRIVER's alone — this is their own posting-commission order, not
+// something any passenger browsing this ride should ever see. Same
+// 404-not-403 IDOR convention as assertOwnRide. A pure read: no order is
+// created or modified, so calling this any number of times is safe.
+export async function getCheckoutDetails(
+  driverId: string,
+  rideId: string,
+): Promise<RideCheckoutDetails> {
+  const ride = await rideRepository.findById(rideId);
+
+  if (!ride || ride.driverId !== driverId) {
+    throw rideNotFound();
+  }
+
+  if (
+    ride.status !== 'PENDING_PAYMENT' ||
+    !ride.paymentOrderId ||
+    providerName !== 'razorpay' ||
+    !providerKeyId
+  ) {
+    throw checkoutNotAvailable();
+  }
+
+  return {
+    keyId: providerKeyId,
+    orderId: ride.paymentOrderId,
+    amount: Math.round(Number(ride.postingCommissionAmount) * 100),
+    currency: 'INR',
+  };
 }
 
 // The support chatbot's `getMyRecentRidesAsDriver` tool (architecture.md

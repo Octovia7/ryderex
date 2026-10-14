@@ -2647,6 +2647,115 @@ Also noted, not fixed: TLS to Supabase is encrypted but not certificate-verified
 because `sslmode=require` is libpq's encrypt-without-validating mode. Closing it
 means `verify-full` plus Supabase's CA bundle.
 
+### 2026-10-11 (Passenger-facing routes explicitly gated to PASSENGER + DRIVER)
+
+A role-model audit confirmed the product requirement — "becoming a DRIVER
+must not remove passenger capability" — already held in practice: the
+passenger-facing routes (`GET /rides/search`, `GET /rides/:id`,
+`POST /rides/:id/bookings`, `GET /bookings/:id`, `POST /bookings/:id/cancel`,
+`GET|POST /bookings/:id/ratings`) carried no role gate at all, so any
+authenticated user — including `ADMIN` — could reach them. §1's actor table
+says admin capability is "review licences and vehicle documents, nothing
+else"; nothing in code enforced that for this surface.
+
+Closed by adding `authorize('PASSENGER', 'DRIVER')` to those seven routes.
+PASSENGER and DRIVER behavior is unchanged (both were already allowed);
+ADMIN now gets `403 FORBIDDEN` instead of succeeding. No schema, migration,
+token-claim, or ownership-check change — `GET /rides/mine` and
+`/rides/:id/{cancel,start,complete}` were left alone since they are
+driver-ownership routes, not passenger-facing ones.
+
+Also found, not fixed here: the endpoint map in §5 lists `GET /bookings`
+(a list endpoint) but no such route exists in `src/modules/booking/routes.ts`
+— only `GET /bookings/:id`. Per §14's rule ("if documentation contradicts the
+code, the code is right"), the map is stale; flagged for a future doc pass
+rather than bundled into this change.
+
+### 2026-10-13 (Duplicate-booking defect closed: one active booking per passenger per ride)
+
+A frontend integration audit surfaced that `bookingService.createBooking`
+had no guard against the same passenger creating a second booking on a ride
+they already had one on — reachable in practice via a My Trips navigation
+path (fixed separately, frontend-only, same date), but the underlying gap
+was backend-wide: nothing prevented it from any entry point, concurrent
+requests included. A follow-up investigation confirmed: no documented rule
+ever specified this (`architecture.md`'s own "Duplicate booking/ride
+request" row was always about `IdempotencyKey` replay of the *same* logical
+attempt, never about two different attempts by the same passenger); no
+repository method detected a passenger's existing booking for a ride; and
+an idempotency key is minted fresh per logical attempt client-side, so it
+cannot and was never meant to catch this.
+
+**Approved rule:** a passenger may have at most one `PENDING_PAYMENT` or
+`CONFIRMED` booking for a given ride at a time. A new booking is allowed
+once the prior one reaches `CANCELLED` or `PAYMENT_FAILED` — both are
+permanent dead ends for that row (no retry/reactivate endpoint exists for
+either), so blocking rebooking after either would close the only recovery
+path a passenger has today.
+
+Closed with a **partial unique index**,
+`bookings(ride_id, passenger_id) WHERE status IN ('PENDING_PAYMENT',
+'CONFIRMED')`, hand-written into migration
+`20261013090000_booking_active_per_passenger_unique` — not an application
+pre-check (TOCTOU-racy on its own, per §14's "never assume a pre-check
+alone is concurrency-safe") and not a table-wide constraint (would have
+blocked re-booking after a legitimate cancellation/failure, which nothing
+asked for). The insert still runs inside `createBooking`'s existing
+transaction alongside `reserveSeats`, so a rejected duplicate rolls the
+seat reservation back with it automatically — no new rollback logic needed.
+The violation is identified by the index's own name
+(`getUniqueConstraintIndexName`, `src/infrastructure/database/
+prismaErrors.ts`) and translated to `409 ALREADY_BOOKED` — never by
+assuming any `P2002` inside that transaction must be this one.
+
+Because Prisma's schema DSL cannot express a partial index's `WHERE`
+predicate, this index has zero representation in `schema.prisma` — the
+exact same hazard class as the `rides` GiST indexes (§13), now documented
+there and in the §15 traps table as a second instance of it.
+
+**What was and wasn't validated.** `npx prisma generate` and `tsc` both ran
+clean. The migration's SQL was applied verbatim against a throwaway,
+local-only Postgres 16 instance (its own fresh data directory, stopped and
+deleted afterward) reproducing only the relevant `bookings` columns — not
+the real database, and not the full migration history, since that needs
+the PostGIS extension and this local install doesn't have it. Against that
+throwaway instance: the index applied cleanly; a second `PENDING_PAYMENT`
+for the same `(ride_id, passenger_id)` was correctly rejected; a
+`CANCELLED` row for the same pair, and a fresh `PENDING_PAYMENT` created
+after cancelling the earlier one, were both correctly allowed; and a true
+concurrency test (one connection holding an open transaction with its
+insert uncommitted, a second connection racing a conflicting insert) showed
+the second blocked on the first's lock and then failed once the first
+committed — not a sequential-only check. **Not validated:** this migration
+has not been applied to any real environment (local, staging, or the
+deployed Supabase database) in this session, and `bookingService`'s actual
+error-translation code path was not exercised against a running instance
+of the application — only confirmed by reading it alongside the throwaway
+database's confirmed index behavior. Whether any row in the real database
+already violates this constraint (which would make `prisma migrate deploy`
+fail outright on this migration) was not and could not be checked without
+connecting to that database, which this task did not authorize.
+
+**Follow-up confirmation, same throwaway-instance discipline.** A second,
+separate local-only Postgres 16 instance (its own fresh data directory,
+stopped and deleted afterward) was built with the real `bookings` table and
+the real partial index applied from the actual migration file, then queried
+through the project's **actual generated Prisma Client and
+`@prisma/adapter-pg`** (constructed the same way `prismaClient.ts` does,
+pointed only at that throwaway instance — the real `DATABASE_URL` was never
+read). A genuine duplicate active-booking insert through
+`prisma.booking.create()` confirmed the violation surfaces exactly where
+`getUniqueConstraintIndexName` looks: `error.code === 'P2002'` and
+`error.meta.driverAdapterError.cause.constraint.index ===
+'bookings_active_ride_passenger_key'`. Separately, wrapping a raw seat-count
+`UPDATE` and a conflicting booking insert in one `prisma.$transaction`
+showed the seat decrement rolled back to its original value once the
+insert failed — the rollback behaviour `createBooking` relies on, directly
+observed rather than inferred from Prisma's documented semantics alone.
+This remains a throwaway local Postgres test, not a test against this
+project's real database in any environment, and still does not establish
+whether any row in a real environment already violates the constraint.
+
 ---
 
 # 20. Roadmap

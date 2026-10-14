@@ -149,6 +149,91 @@ export function findRideAndSeats(client: Client, id: string) {
   return client.booking.findUnique({ where: { id }, select: { rideId: true, seats: true } });
 }
 
+export interface FindByPassengerIdParams {
+  limit: number;
+  // The keyset position of the last row on a previous page — the same
+  // (value, id) idea as findRecentByPassengerId below and ride search's own
+  // cursor, but fixed to one sort (newest-first) rather than five, matching
+  // notificationRepository.findByUserId's shape exactly.
+  after?: { createdAt: Date; id: string };
+}
+
+// The caller's own bookings, newest-first, keyset-paginated — the
+// cursor-paginated counterpart to findRecentByPassengerId below. A separate
+// function rather than adding pagination params to that one: the AI support
+// chatbot tool calling it is a fixed "10 most recent, no cursor" contract
+// that must not change shape under it (architecture.md §17).
+// `id` is the tie-breaker for rows sharing a `createdAt` millisecond, the
+// same idea as `bookings(passenger_id)`'s composite ordering need.
+export function findByPassengerId(
+  client: Client,
+  passengerId: string,
+  params: FindByPassengerIdParams,
+) {
+  return client.booking.findMany({
+    where: {
+      passengerId,
+      ...(params.after
+        ? {
+            OR: [
+              { createdAt: { lt: params.after.createdAt } },
+              { createdAt: params.after.createdAt, id: { lt: params.after.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: params.limit,
+    select: SELECT,
+  });
+}
+
+export interface FindByRideIdParams {
+  limit: number;
+  // Same keyset shape as FindByPassengerIdParams above — one sort
+  // (newest-first), `id` as the tie-breaker for a shared `createdAt`.
+  after?: { createdAt: Date; id: string };
+}
+
+// Minimal columns only — the driver-facing counterpart to findByPassengerId
+// above, but deliberately leaner: this feeds a driver's own read of who
+// booked their ride (eventually, who they may rate), not a payment or fare
+// view, so farePerSeat/totalFare/prepaidAmount/paymentOrderId/pickup/drop
+// are left out entirely rather than selected and then discarded by the
+// service layer. `passenger` is a relation select, not a second query.
+const RIDE_BOOKING_SELECT = {
+  id: true,
+  passengerId: true,
+  seats: true,
+  status: true,
+  createdAt: true,
+  passenger: { select: { name: true } },
+} as const;
+
+// Every booking on one ride, any status, newest-first, keyset-paginated —
+// scoped by rideId rather than passengerId. Ownership (is the caller this
+// ride's driver) is the SERVICE's job (bookingService.listBookingsForRide),
+// never this repository's, the same separation every other repository here
+// keeps.
+export function findByRideId(client: Client, rideId: string, params: FindByRideIdParams) {
+  return client.booking.findMany({
+    where: {
+      rideId,
+      ...(params.after
+        ? {
+            OR: [
+              { createdAt: { lt: params.after.createdAt } },
+              { createdAt: params.after.createdAt, id: { lt: params.after.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: params.limit,
+    select: RIDE_BOOKING_SELECT,
+  });
+}
+
 // The driver-cancellation cascade's own snapshot of a ride's active
 // bookings — read inside the cascade's transaction, then acted on by
 // gating each one on ITS OWN cancelForCascade return value below, never on
