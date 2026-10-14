@@ -1,0 +1,25 @@
+@keyframes sr-dash {
+  to {
+    stroke-dashoffset: -56;
+  }
+}
+@keyframes sr-ping {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.sr-route {
+  stroke-dasharray: 8 6;
+  animation: sr-dash 1.4s linear infinite;
+}
+.sr-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sr-ping 1.8s ease-out infinite;
+}

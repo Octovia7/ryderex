@@ -1,0 +1,72 @@
+/*
+ * Design tokens transcribed from the SaathiRide design handoff
+ * (saathiride-design-handoff/HANDOFF.md), cross-checked against the
+ * .dc.html screen markup. Dark is the primary theme and lives on :root;
+ * light overrides it under [data-theme="light"].
+ */
+
+:root {
+  --font-ui: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-control: 16px;
+  --radius-card: 24px;
+  --radius-chip: 999px;
+  --radius-sheet: 28px;
+
+  --bg: #05070d;
+  --surface-1: #0a0f1d;
+  --surface-2: #0b1020;
+  --surface-3: #111a30;
+  --border: #1e2a44;
+  --border-subtle: #18213a;
+  --text: #e8eeff;
+  --text-2: #aeb9d6;
+  --text-muted: #8e9bbb;
+
+  --accent: #2ee6f6;
+  --accent-on: #03141a;
+  --accent-2: #9d8cff;
+  --accent-2-on: #0b0720;
+  --warning: #ffb547;
+  --warning-on: #1a1206;
+  --star: #ffc857;
+  --success-border: #1d4450;
+  --warning-border: #4a3a1e;
+
+  --accent-glow: 0 10px 40px rgba(46, 230, 246, 0.35);
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f6fb;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #eef2f8;
+  --border: #dde4f0;
+  --border-subtle: #dde4f0;
+  --text: #0b1222;
+  --text-2: #3f4a66;
+  --text-muted: #56627e;
+
+  --accent: #0b8193;
+  --accent-on: #ffffff;
+  --accent-2: #6b57d6;
+  --accent-2-on: #ffffff;
+  --warning: #b45f06;
+  --warning-on: #ffffff;
+  --star: #a86a00;
+  /* The handoff documents one border tone for light-theme borders; it is
+     reused here for both slots rather than inventing a second shade it
+     never names. */
+  --success-border: #dde4f0;
+  --warning-border: #dde4f0;
+
+  --accent-glow: 0 10px 40px rgba(11, 129, 147, 0.35);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
