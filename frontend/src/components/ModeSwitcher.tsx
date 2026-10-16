@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { CSSProperties } from 'react';
+import { cn } from '../lib/cn';
 
 // Lets a DRIVER move between the passenger hub (/app) and the driver hub
 // (/driver) without logging out — only rendered for drivers, since a
@@ -7,38 +7,25 @@ import type { CSSProperties } from 'react';
 export function ModeSwitcher({ active }: { active: 'passenger' | 'driver' }) {
   const navigate = useNavigate();
 
-  function tabStyle(selected: boolean): CSSProperties {
-    return {
-      flex: 1,
-      height: 36,
-      borderRadius: 10,
-      border: 0,
-      cursor: 'pointer',
-      background: selected ? 'var(--accent)' : 'transparent',
-      color: selected ? 'var(--accent-on)' : 'var(--text-2)',
-      font: '600 12px var(--font-ui)',
-    };
+  function tabClass(selected: boolean): string {
+    return cn(
+      'h-9 flex-1 rounded-lg text-xs font-semibold transition-colors',
+      selected ? 'bg-accent-700 text-white' : 'bg-transparent text-ink-muted',
+    );
   }
 
   return (
     <div
       role="tablist"
       aria-label="Switch experience"
-      style={{
-        display: 'flex',
-        gap: 6,
-        padding: 4,
-        borderRadius: 14,
-        background: 'var(--surface-2)',
-        border: '1px solid var(--border)',
-      }}
+      className="flex gap-1.5 rounded-xl border border-border-strong bg-slate-50 p-1"
     >
       <button
         type="button"
         role="tab"
         aria-selected={active === 'passenger'}
         onClick={() => navigate('/app')}
-        style={tabStyle(active === 'passenger')}
+        className={tabClass(active === 'passenger')}
       >
         Passenger
       </button>
@@ -47,7 +34,7 @@ export function ModeSwitcher({ active }: { active: 'passenger' | 'driver' }) {
         role="tab"
         aria-selected={active === 'driver'}
         onClick={() => navigate('/driver')}
-        style={tabStyle(active === 'driver')}
+        className={tabClass(active === 'driver')}
       >
         Driver
       </button>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { autocompletePlaces, PlacesUnavailableError } from '../api/places';
 import type { PlaceSuggestion } from '../api/places';
+import { cn } from '../lib/cn';
 
 export interface LocationValue {
   label: string;
@@ -83,94 +84,39 @@ export function LocationField({
     setOpen(false);
   }
 
-  const dotStyle =
-    dotShape === 'circle'
-      ? { borderRadius: '50%' }
-      : { borderRadius: 3 };
+  const dotColorClass = dotColor === 'accent' ? 'bg-accent-700' : 'bg-violet-500';
+  const dotShadow =
+    dotColor === 'accent' ? '0 0 10px rgba(15,118,110,.6)' : '0 0 10px rgba(139,92,246,.6)';
 
   return (
-    <div style={{ position: 'relative' }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0' }}>
+    <div className="relative">
+      <label className="flex items-center gap-3.5 py-3">
         <span
-          style={{
-            width: 10,
-            height: 10,
-            flexShrink: 0,
-            background: `var(--${dotColor})`,
-            boxShadow: `0 0 10px var(--${dotColor})`,
-            ...dotStyle,
-          }}
+          className={cn('size-2.5 shrink-0', dotColorClass, dotShape === 'circle' ? 'rounded-full' : 'rounded-sm')}
+          style={{ boxShadow: dotShadow }}
         />
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              letterSpacing: '.14em',
-              color: 'var(--text-muted)',
-            }}
-          >
-            {label}
-          </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-mono text-[10px] tracking-wider text-ink-muted">{label}</span>
           <input
             type="text"
             value={value.label}
             onChange={(event) => handleTextChange(event.target.value)}
             onFocus={() => suggestions.length > 0 && setOpen(true)}
             placeholder={placeholder}
-            style={{
-              background: 'transparent',
-              border: 0,
-              outline: 'none',
-              color: 'var(--text)',
-              font: '500 15px var(--font-ui)',
-              padding: 0,
-              width: '100%',
-            }}
+            className="w-full border-0 bg-transparent p-0 text-sm font-medium text-ink outline-none"
           />
         </span>
-        {loading && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-            …
-          </span>
-        )}
+        {loading && <span className="font-mono text-[10px] text-ink-muted">…</span>}
       </label>
 
       {open && suggestions.length > 0 && (
-        <ul
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: '100%',
-            zIndex: 10,
-            margin: '4px 0 0',
-            padding: 6,
-            listStyle: 'none',
-            borderRadius: 16,
-            background: 'var(--surface-1)',
-            border: '1px solid var(--border)',
-            boxShadow: '0 18px 40px rgba(0,0,0,.35)',
-            maxHeight: 220,
-            overflowY: 'auto',
-          }}
-        >
+        <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-[220px] overflow-y-auto rounded-xl border border-border-strong bg-surface p-1.5 shadow-lg">
           {suggestions.map((suggestion) => (
             <li key={suggestion.placeId}>
               <button
                 type="button"
                 onClick={() => selectSuggestion(suggestion)}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  border: 0,
-                  background: 'transparent',
-                  color: 'var(--text)',
-                  font: '500 14px var(--font-ui)',
-                  cursor: 'pointer',
-                }}
+                className="w-full rounded-lg border-0 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-ink"
               >
                 {suggestion.label}
               </button>
@@ -180,9 +126,7 @@ export function LocationField({
       )}
 
       {unavailable && (
-        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--warning)' }}>
-          Location search isn't available right now.
-        </p>
+        <p className="mt-1 text-xs text-red-600">Location search isn't available right now.</p>
       )}
     </div>
   );

@@ -7,16 +7,10 @@ export function RoutePreview({ height = 160 }: { height?: number }) {
   const w = 358;
   return (
     <div
-      style={{
-        position: 'relative',
-        height,
-        borderRadius: 22,
-        overflow: 'hidden',
-        background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-        border: '1px solid var(--border-subtle)',
-      }}
+      className="relative overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm"
+      style={{ height }}
     >
-      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className="absolute inset-0">
         <defs>
           <linearGradient id="sr-route-gradient" x1="0" x2="1">
             <stop offset="0" stopColor="var(--accent)" />
