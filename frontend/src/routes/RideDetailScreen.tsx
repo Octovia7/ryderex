@@ -10,7 +10,7 @@ import type { Booking } from '../api/bookings';
 import { ApiError } from '../api/client';
 import { isValidCheckoutDetails, loadRazorpayCheckout } from '../api/razorpayCheckout';
 import type { RazorpayCheckoutInstance } from '../api/razorpayCheckout';
-import { RoutePreview } from '../components/RoutePreview';
+import { LazyRouteMap } from '../components/LazyRouteMap';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { cn } from '../lib/cn';
@@ -392,7 +392,14 @@ export function RideDetailScreen() {
   return (
     <div className="mx-auto max-w-xl">
       <div style={{ position: 'relative' }}>
-        <RoutePreview height={220} />
+        <LazyRouteMap
+          height={240}
+          routeGeometry={ride.routeGeometry}
+          points={[
+            { lat: ride.origin.lat, lng: ride.origin.lng, label: pickupLabel ?? 'Pickup', kind: 'origin' },
+            { lat: ride.destination.lat, lng: ride.destination.lng, label: dropLabel ?? 'Drop', kind: 'destination' },
+          ]}
+        />
         <div className="absolute inset-x-4 top-4 flex justify-between">
           <button
             type="button"
