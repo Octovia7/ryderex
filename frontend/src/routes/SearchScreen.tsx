@@ -1,9 +1,12 @@
+import { ArrowRightLeft, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoutePreview } from '../components/RoutePreview';
 import { LocationField } from '../components/LocationField';
 import type { LocationValue } from '../components/LocationField';
 import { BottomNav } from '../components/BottomNav';
+import { Button } from '../components/ui/Button';
+import { cn } from '../lib/cn';
 import { upcomingKolkataDates } from '../utils/kolkataDate';
 
 const EMPTY_LOCATION: LocationValue = { label: '', lat: null, lng: null };
@@ -48,174 +51,116 @@ export function SearchScreen() {
   }
 
   return (
-    <div style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 440, margin: '0 auto', padding: '0 0 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.1, fontWeight: 600, letterSpacing: '-0.03em' }}>
-            Where are you
-            <br />
-            headed today?
-          </h1>
-          <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
-            Share a ride with drivers already going your way.
-          </p>
+    <div className="mx-auto flex max-w-md flex-col gap-4 pb-24">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink">
+          Where are you
+          <br />
+          headed today?
+        </h1>
+        <p className="text-sm text-ink-muted">Share a ride with drivers already going your way.</p>
+      </div>
+
+      <RoutePreview />
+
+      <div className="rounded-xl border border-border-strong bg-surface px-4">
+        <div className="border-b border-border-subtle">
+          <LocationField
+            label="PICKUP"
+            placeholder="Search pickup point"
+            value={pickup}
+            onChange={setPickup}
+            dotColor="accent"
+            dotShape="circle"
+          />
         </div>
+        <div className="relative">
+          <LocationField
+            label="DROP"
+            placeholder="Search drop point"
+            value={drop}
+            onChange={setDrop}
+            dotColor="accent-2"
+            dotShape="square"
+          />
+          <button
+            type="button"
+            aria-label="Swap pickup and drop"
+            onClick={handleSwap}
+            className="absolute right-0 top-3 flex size-11 items-center justify-center rounded-xl border border-border-strong bg-slate-50"
+          >
+            <ArrowRightLeft className="size-[18px] text-accent-700" aria-hidden />
+          </button>
+        </div>
+      </div>
 
-        <RoutePreview />
+      <div className="flex flex-col gap-2.5">
+        <span className="font-mono text-[10px] tracking-wider text-ink-muted">DATE</span>
+        <div className="flex gap-2">
+          {DATE_OPTIONS.map((option, index) => {
+            const on = index === dateIndex;
+            return (
+              <button
+                key={option.dateStr}
+                type="button"
+                onClick={() => setDateIndex(index)}
+                className={cn(
+                  'flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors',
+                  on ? 'border-accent-700 bg-accent-50 text-ink' : 'border-border-strong bg-surface text-ink-muted',
+                )}
+              >
+                <span className="text-sm font-semibold">{option.label}</span>
+                <span className="font-mono text-xs opacity-80">{option.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        <div style={{ borderRadius: 20, background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '0 16px' }}>
-          <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-            <LocationField
-              label="PICKUP"
-              placeholder="Search pickup point"
-              value={pickup}
-              onChange={setPickup}
-              dotColor="accent"
-              dotShape="circle"
-            />
-          </div>
-          <div style={{ position: 'relative' }}>
-            <LocationField
-              label="DROP"
-              placeholder="Search drop point"
-              value={drop}
-              onChange={setDrop}
-              dotColor="accent-2"
-              dotShape="square"
-            />
+      <div className="flex gap-2.5">
+        <div className="flex flex-1 items-center justify-between rounded-xl border border-border-strong bg-surface py-1.5 pl-3.5 pr-1.5">
+          <span className="text-sm text-ink">Seats</span>
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="Swap pickup and drop"
-              onClick={handleSwap}
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 12,
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                background: 'var(--surface-3)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
+              aria-label="Fewer seats"
+              onClick={() => setSeats((s) => Math.max(1, s - 1))}
+              className="flex size-11 items-center justify-center rounded-lg border border-border-strong bg-slate-50 text-lg text-ink"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 4v16M7 4 3 8M7 4l4 4M17 20V4M17 20l-4-4M17 20l4-4" />
-              </svg>
+              −
+            </button>
+            <span className="w-7 text-center font-mono text-lg font-semibold text-accent-700">{seats}</span>
+            <button
+              type="button"
+              aria-label="More seats"
+              onClick={() => setSeats((s) => Math.min(4, s + 1))}
+              className="flex size-11 items-center justify-center rounded-lg border border-border-strong bg-slate-50 text-lg text-ink"
+            >
+              +
             </button>
           </div>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-            DATE
-          </span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {DATE_OPTIONS.map((option, index) => {
-              const on = index === dateIndex;
-              return (
-                <button
-                  key={option.dateStr}
-                  type="button"
-                  onClick={() => setDateIndex(index)}
-                  style={{
-                    flex: 1,
-                    height: 56,
-                    borderRadius: 16,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 2,
-                    background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                    color: on ? 'var(--text)' : 'var(--text-2)',
-                    boxShadow: on ? '0 0 18px rgba(11,129,147,.2)' : 'none',
-                    transition: 'all .25s',
-                  }}
-                >
-                  <span style={{ font: '600 13px var(--font-ui)' }}>{option.label}</span>
-                  <span style={{ font: '500 11px var(--font-mono)', opacity: 0.8 }}>{option.sub}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-col justify-center rounded-xl border border-border-strong bg-surface px-3.5">
+          <span className="font-mono text-[10px] tracking-wider text-ink-muted">RADIUS</span>
+          <span className="font-mono text-sm font-semibold text-ink">{SEARCH_RADIUS_LABEL}</span>
         </div>
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '6px 6px 6px 14px',
-              borderRadius: 16,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Seats</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                type="button"
-                aria-label="Fewer seats"
-                onClick={() => setSeats((s) => Math.max(1, s - 1))}
-                style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 20, cursor: 'pointer' }}
-              >
-                −
-              </button>
-              <span style={{ width: 28, textAlign: 'center', font: '600 18px var(--font-mono)', color: 'var(--accent)' }}>{seats}</span>
-              <button
-                type="button"
-                aria-label="More seats"
-                onClick={() => setSeats((s) => Math.min(4, s + 1))}
-                style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 20, cursor: 'pointer' }}
-              >
-                +
-              </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 14px', borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.12em', color: 'var(--text-muted)' }}>RADIUS</span>
-            <span style={{ font: '600 15px var(--font-mono)', color: 'var(--text)' }}>{SEARCH_RADIUS_LABEL}</span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          disabled={!canSearch}
-          onClick={handleSearch}
-          style={{
-            height: 58,
-            borderRadius: 18,
-            border: 0,
-            cursor: canSearch ? 'pointer' : 'not-allowed',
-            background: canSearch ? 'var(--accent)' : 'var(--surface-3)',
-            color: canSearch ? 'var(--accent-on)' : 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            font: '700 17px var(--font-ui)',
-            boxShadow: canSearch ? 'var(--accent-glow)' : 'none',
-          }}
-        >
-          Find rides
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </button>
-        {!canSearch && (
-          <p style={{ margin: '-8px 0 0', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Pick a pickup and drop point from the suggestions to search.
-          </p>
-        )}
       </div>
+
+      <Button
+        size="lg"
+        className="h-14 text-base"
+        disabled={!canSearch}
+        onClick={handleSearch}
+      >
+        Find rides
+        <ArrowRight className="size-5" aria-hidden />
+      </Button>
+      {!canSearch && (
+        <p className="-mt-2 text-center text-xs text-ink-muted">
+          Pick a pickup and drop point from the suggestions to search.
+        </p>
+      )}
+
       <BottomNav />
     </div>
   );

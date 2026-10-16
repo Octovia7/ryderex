@@ -1,8 +1,11 @@
+import { Mail } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
 import { roleHomePath, InvalidSessionError } from '../auth/roles';
 import { ApiError } from '../api/client';
+import { Button } from '../components/ui/Button';
+import { cn } from '../lib/cn';
 import './LoginScreen.css';
 
 // Real backend defaults (src/config/env.ts) — not arbitrary UI numbers.
@@ -122,120 +125,38 @@ export function LoginScreen() {
   const ss = String(ttl % 60).padStart(2, '0');
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        background: 'var(--bg)',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          color: 'var(--text)',
-          fontFamily: 'var(--font-ui)',
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-        }}
-      >
-        <div style={{ position: 'relative', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div
-            className="sr-orbit2"
-            style={{
-              position: 'absolute',
-              width: 300,
-              height: 300,
-              borderRadius: '50%',
-              border: '1px dashed var(--border)',
-            }}
-          >
-            <span
-              style={{
-                position: 'absolute',
-                top: -5,
-                left: '50%',
-                width: 10,
-                height: 10,
-                borderRadius: 3,
-                background: 'var(--accent-2)',
-                boxShadow: '0 0 14px var(--accent-2)',
-              }}
-            />
+    <div className="flex min-h-dvh flex-col items-center bg-canvas">
+      <div className="flex w-full max-w-md flex-1 flex-col">
+        <div className="relative flex h-[300px] items-center justify-center">
+          <div className="sr-orbit2 absolute size-[300px] rounded-full border border-dashed border-border-strong">
+            <span className="absolute left-1/2 -top-[5px] size-2.5 rounded-sm bg-violet-500 shadow-[0_0_14px_rgba(139,92,246,0.7)]" />
           </div>
-          <div
-            className="sr-orbit1"
-            style={{
-              position: 'absolute',
-              width: 210,
-              height: 210,
-              borderRadius: '50%',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <span
-              style={{
-                position: 'absolute',
-                bottom: 18,
-                left: 14,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: 'var(--accent)',
-                boxShadow: '0 0 14px var(--accent)',
-              }}
-            />
-            <span
-              style={{
-                position: 'absolute',
-                top: 30,
-                right: 6,
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--text)',
-                opacity: 0.7,
-              }}
-            />
+          <div className="sr-orbit1 absolute size-[210px] rounded-full border border-border-subtle">
+            <span className="absolute bottom-[18px] left-[14px] size-2.5 rounded-full bg-accent-700 shadow-[0_0_14px_rgba(15,118,110,0.7)]" />
+            <span className="absolute right-1.5 top-[30px] size-1.5 rounded-full bg-ink opacity-70" />
           </div>
-          <div
-            style={{
-              position: 'relative',
-              width: 104,
-              height: 104,
-              borderRadius: 32,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--accent)',
-              boxShadow: '0 0 50px rgba(11,129,147,.2), inset 0 0 26px rgba(11,129,147,.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <div className="relative flex size-[104px] items-center justify-center rounded-[32px] border border-accent-700 bg-surface shadow-[0_0_50px_rgba(15,118,110,0.2),inset_0_0_26px_rgba(15,118,110,0.12)]">
+            <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-accent-700" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 17 C 8 17, 8 7, 12 7 S 16 17, 20 17" />
               <circle cx="4" cy="17" r="2" />
-              <circle cx="20" cy="17" r="2" stroke="var(--accent-2)" />
+              <circle cx="20" cy="17" r="2" className="text-violet-500" stroke="currentColor" />
             </svg>
           </div>
         </div>
 
-        <div style={{ flex: 1, padding: '0 24px 32px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.16em', color: 'var(--accent)' }}>
+        <div className="flex flex-1 flex-col gap-5 px-6 pb-8">
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-xs tracking-[0.16em] text-accent-700">
               {step === 'email' && 'STEP 1 / 2 · SIGN IN'}
               {step === 'otp' && 'STEP 2 / 2 · VERIFY'}
               {step === 'details' && 'ALMOST THERE · NEW ACCOUNT'}
             </span>
-            <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.08, fontWeight: 600, letterSpacing: '-0.03em', whiteSpace: 'pre-line' }}>
+            <h1 className="whitespace-pre-line text-[32px] font-semibold leading-[1.08] tracking-tight text-ink">
               {step === 'email' && 'Ride together.\nPay less.'}
               {step === 'otp' && 'Enter the code'}
               {step === 'details' && 'Tell us about you'}
             </h1>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+            <p className="text-sm leading-relaxed text-ink-muted">
               {step === 'email' &&
                 'Sign in with your email. We send a one-time code — no password to remember.'}
               {step === 'otp' && `We sent a 6-digit code to ${email}.`}
@@ -244,89 +165,42 @@ export function LoginScreen() {
           </div>
 
           {error && (
-            <p
-              role="alert"
-              style={{
-                margin: 0,
-                padding: '10px 14px',
-                borderRadius: 12,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--warning-border)',
-                color: 'var(--warning)',
-                fontSize: 13,
-                lineHeight: 1.4,
-              }}
-            >
+            <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm leading-relaxed text-amber-700">
               {error}
             </p>
           )}
 
           {step === 'email' && (
             <form
-              className="sr-rise"
-              style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              className="sr-rise flex flex-col gap-3.5"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (emailValid && !loading) void handleSendCode();
               }}
             >
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                  EMAIL
-                </span>
+              <label className="flex flex-col gap-2">
+                <span className="font-mono text-[10px] tracking-wider text-ink-muted">EMAIL</span>
                 <span
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    height: 56,
-                    padding: '0 16px',
-                    borderRadius: 'var(--radius-control)',
-                    background: 'var(--surface-2)',
-                    border: `1px solid ${emailValid ? 'var(--accent)' : 'var(--border)'}`,
-                    transition: 'all .25s',
-                  }}
+                  className={cn(
+                    'flex h-14 items-center gap-3 rounded-xl border px-4 transition-colors',
+                    emailValid ? 'border-accent-700' : 'border-border-strong',
+                  )}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="5" width="18" height="14" rx="3" />
-                    <path d="m3 7 9 6 9-6" />
-                  </svg>
+                  <Mail className="size-[18px] text-ink-faint" aria-hidden />
                   <input
-                    className="sr-login-input"
+                    className="sr-login-input flex-1 border-0 bg-transparent text-base font-medium text-ink outline-none"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    style={{
-                      flex: 1,
-                      background: 'transparent',
-                      border: 0,
-                      outline: 'none',
-                      color: 'var(--text)',
-                      font: "500 16px var(--font-ui)",
-                      padding: 0,
-                    }}
                   />
                 </span>
               </label>
-              <button
-                type="submit"
-                disabled={!emailValid || loading}
-                style={{
-                  height: 58,
-                  borderRadius: 'var(--radius-control)',
-                  border: 0,
-                  cursor: emailValid && !loading ? 'pointer' : 'not-allowed',
-                  background: emailValid ? 'var(--accent)' : 'var(--surface-3)',
-                  color: emailValid ? 'var(--accent-on)' : 'var(--text-muted)',
-                  font: "700 17px var(--font-ui)",
-                  boxShadow: emailValid ? 'var(--accent-glow)' : 'none',
-                }}
-              >
-                {loading ? 'Sending…' : 'Send login code'}
-              </button>
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', textAlign: 'center' }}>
+              <Button type="submit" size="lg" className="h-14 text-base" disabled={!emailValid} loading={loading}>
+                Send login code
+              </Button>
+              <p className="text-center text-xs leading-relaxed text-ink-muted">
                 No passwords. New here? We'll set up your account after you verify.
               </p>
             </form>
@@ -334,41 +208,28 @@ export function LoginScreen() {
 
           {step === 'otp' && (
             <form
-              className="sr-rise"
-              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+              className="sr-rise flex flex-col gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (otpValid && !loading) void submitVerify();
               }}
             >
-              <label style={{ position: 'relative', display: 'flex', gap: 8, cursor: 'text' }}>
-                <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-                  6-digit code
-                </span>
+              <label className="relative flex cursor-text gap-2">
+                <span className="sr-only">6-digit code</span>
                 {Array.from({ length: 6 }, (_, i) => {
                   const filled = i < otp.length;
                   const active = i === otp.length;
-                  const border = active ? 'var(--accent)' : filled ? 'var(--text-2)' : 'var(--border)';
                   return (
                     <span
                       key={i}
-                      style={{
-                        flex: 1,
-                        height: 62,
-                        borderRadius: 14,
-                        background: 'var(--surface-2)',
-                        border: `1px solid ${border}`,
-                        boxShadow: active ? '0 0 16px rgba(11,129,147,.25)' : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        font: "600 26px var(--font-mono)",
-                        color: 'var(--text)',
-                        transition: 'all .2s',
-                      }}
+                      className={cn(
+                        'flex h-[62px] flex-1 items-center justify-center rounded-xl border font-mono text-[26px] font-semibold text-ink transition-colors',
+                        active ? 'border-accent-700' : filled ? 'border-ink-faint' : 'border-border-strong',
+                        active && 'shadow-[0_0_16px_rgba(15,118,110,0.25)]',
+                      )}
                     >
                       {filled ? otp[i] : ''}
-                      {active && <span className="sr-caret" style={{ width: 2, height: 26, background: 'var(--accent)' }} />}
+                      {active && <span className="sr-caret h-[26px] w-0.5 bg-accent-700" />}
                     </span>
                   );
                 })}
@@ -379,48 +240,31 @@ export function LoginScreen() {
                   value={otp}
                   onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
                   autoFocus
-                  style={{ position: 'absolute', inset: 0, opacity: 0, fontSize: 16 }}
+                  className="absolute inset-0 text-base opacity-0"
                 />
               </label>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
+              <div className="flex justify-between font-mono text-xs text-ink-muted">
                 <span>
-                  Expires in <span style={{ color: 'var(--text)' }}>{mm}:{ss}</span>
+                  Expires in <span className="text-ink">{mm}:{ss}</span>
                 </span>
                 <span>5 attempts max</span>
               </div>
 
-              <button
-                type="submit"
-                disabled={!otpValid || loading}
-                style={{
-                  height: 58,
-                  borderRadius: 'var(--radius-control)',
-                  border: 0,
-                  cursor: otpValid && !loading ? 'pointer' : 'not-allowed',
-                  background: otpValid ? 'var(--accent)' : 'var(--surface-3)',
-                  color: otpValid ? 'var(--accent-on)' : 'var(--text-muted)',
-                  font: "700 17px var(--font-ui)",
-                  boxShadow: otpValid ? 'var(--accent-glow)' : 'none',
-                }}
-              >
-                {loading ? 'Verifying…' : 'Verify & continue'}
-              </button>
+              <Button type="submit" size="lg" className="h-14 text-base" disabled={!otpValid} loading={loading}>
+                Verify & continue
+              </Button>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+              <div className="flex justify-center gap-1.5 text-sm text-ink-muted">
                 <span>Didn't get it?</span>
                 <button
                   type="button"
                   onClick={() => void handleResend()}
                   disabled={cooldown > 0 || loading}
-                  style={{
-                    background: 'none',
-                    border: 0,
-                    padding: 0,
-                    cursor: cooldown > 0 || loading ? 'default' : 'pointer',
-                    font: "600 13px var(--font-ui)",
-                    color: cooldown > 0 ? 'var(--text-muted)' : 'var(--accent)',
-                  }}
+                  className={cn(
+                    'border-0 bg-transparent p-0 text-sm font-semibold',
+                    cooldown > 0 || loading ? 'cursor-default text-ink-muted' : 'cursor-pointer text-accent-700',
+                  )}
                 >
                   {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
                 </button>
@@ -432,7 +276,7 @@ export function LoginScreen() {
                   setOtp('');
                   setError(null);
                 }}
-                style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--text-muted)', font: "500 13px var(--font-ui)", minHeight: 44 }}
+                className="min-h-11 border-0 bg-transparent text-sm text-ink-muted"
               >
                 Use a different email
               </button>
@@ -441,75 +285,43 @@ export function LoginScreen() {
 
           {step === 'details' && (
             <form
-              className="sr-rise"
-              style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              className="sr-rise flex flex-col gap-3.5"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (detailsValid && !loading) void submitVerify({ name: name.trim(), phone: phone.trim() });
               }}
             >
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                  FULL NAME
-                </span>
+              <label className="flex flex-col gap-2">
+                <span className="font-mono text-[10px] tracking-wider text-ink-muted">FULL NAME</span>
                 <input
-                  className="sr-login-input"
+                  className={cn(
+                    'sr-login-input h-14 rounded-xl border bg-surface px-4 text-base font-medium text-ink outline-none',
+                    name.trim() ? 'border-accent-700' : 'border-border-strong',
+                  )}
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Your name"
                   autoComplete="name"
-                  style={{
-                    height: 56,
-                    padding: '0 16px',
-                    borderRadius: 'var(--radius-control)',
-                    background: 'var(--surface-2)',
-                    border: `1px solid ${name.trim() ? 'var(--accent)' : 'var(--border)'}`,
-                    color: 'var(--text)',
-                    font: "500 16px var(--font-ui)",
-                    outline: 'none',
-                  }}
                 />
               </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                  PHONE
-                </span>
+              <label className="flex flex-col gap-2">
+                <span className="font-mono text-[10px] tracking-wider text-ink-muted">PHONE</span>
                 <input
-                  className="sr-login-input"
+                  className={cn(
+                    'sr-login-input h-14 rounded-xl border bg-surface px-4 text-base font-medium text-ink outline-none',
+                    phone.trim() ? 'border-accent-700' : 'border-border-strong',
+                  )}
                   type="tel"
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder="Your phone number"
                   autoComplete="tel"
-                  style={{
-                    height: 56,
-                    padding: '0 16px',
-                    borderRadius: 'var(--radius-control)',
-                    background: 'var(--surface-2)',
-                    border: `1px solid ${phone.trim() ? 'var(--accent)' : 'var(--border)'}`,
-                    color: 'var(--text)',
-                    font: "500 16px var(--font-ui)",
-                    outline: 'none',
-                  }}
                 />
               </label>
-              <button
-                type="submit"
-                disabled={!detailsValid || loading}
-                style={{
-                  height: 58,
-                  borderRadius: 'var(--radius-control)',
-                  border: 0,
-                  cursor: detailsValid && !loading ? 'pointer' : 'not-allowed',
-                  background: detailsValid ? 'var(--accent)' : 'var(--surface-3)',
-                  color: detailsValid ? 'var(--accent-on)' : 'var(--text-muted)',
-                  font: "700 17px var(--font-ui)",
-                  boxShadow: detailsValid ? 'var(--accent-glow)' : 'none',
-                }}
-              >
-                {loading ? 'Creating account…' : 'Create account & continue'}
-              </button>
+              <Button type="submit" size="lg" className="h-14 text-base" disabled={!detailsValid} loading={loading}>
+                Create account & continue
+              </Button>
             </form>
           )}
         </div>
