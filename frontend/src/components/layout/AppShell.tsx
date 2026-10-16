@@ -12,11 +12,19 @@ interface NavItem {
   label: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
+// Every account gets passenger capability. DRIVER additionally gets its
+// own hub links — without these, a driver has no way to reach their
+// posted rides or vehicle except by typing the URL directly, since the
+// "Offer a ride" shortcut only ever leads to posting a NEW ride.
+const PASSENGER_NAV_ITEMS: NavItem[] = [
   { to: '/search', label: 'Find a ride' },
   { to: '/trips', label: 'My trips' },
-  { to: '/messages', label: 'Messages' },
 ];
+const DRIVER_NAV_ITEMS: NavItem[] = [
+  { to: '/driver/rides', label: 'My rides' },
+  { to: '/driver/vehicle', label: 'My vehicle' },
+];
+const MESSAGES_NAV_ITEM: NavItem = { to: '/messages', label: 'Messages' };
 
 function navLinkClasses({ isActive }: { isActive: boolean }): string {
   return cn(
@@ -144,6 +152,9 @@ export function AppShell() {
 
   const signedIn = status === 'authenticated';
   const isDriver = user?.role === 'DRIVER';
+  const navItems = isDriver
+    ? [...PASSENGER_NAV_ITEMS, ...DRIVER_NAV_ITEMS, MESSAGES_NAV_ITEM]
+    : [...PASSENGER_NAV_ITEMS, MESSAGES_NAV_ITEM];
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -155,7 +166,7 @@ export function AppShell() {
 
           {signedIn && (
             <nav className="hidden items-center md:flex">
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <NavLink key={item.to} to={item.to} className={navLinkClasses}>
                   {item.label}
                 </NavLink>
@@ -198,7 +209,7 @@ export function AppShell() {
 
         {signedIn && mobileOpen && (
           <nav className="border-t border-border-subtle bg-surface px-4 py-2 md:hidden">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
