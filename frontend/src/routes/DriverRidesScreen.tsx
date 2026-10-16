@@ -458,7 +458,7 @@ export function DriverRidesScreen() {
                   </div>
                 )}
 
-                {ride.status === 'COMPLETED' && (
+                {(ride.status === 'OPEN' || ride.status === 'FULL' || ride.status === 'COMPLETED') && (
                   <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-2.5">
                     <Button variant="secondary" size="sm" className="w-fit" onClick={() => handleTogglePassengers(ride.id)}>
                       {passengersPanelOpenId === ride.id ? 'Hide passengers' : 'View passengers'}
@@ -516,6 +516,18 @@ export function DriverRidesScreen() {
                                   <span className="font-mono text-[10px] tracking-wider text-ink-muted">
                                     {booking.status}
                                   </span>
+                                  {booking.status === 'CONFIRMED' && (
+                                    <span
+                                      className={cn(
+                                        'w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                        booking.pickupConfirmedAt
+                                          ? 'bg-accent-50 text-accent-700'
+                                          : 'bg-amber-50 text-amber-700',
+                                      )}
+                                    >
+                                      {booking.pickupConfirmedAt ? '✓ Confirmed pickup' : 'Not confirmed yet'}
+                                    </span>
+                                  )}
 
                                   {eligibleForRating && (
                                     <>

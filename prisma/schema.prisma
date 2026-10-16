@@ -451,6 +451,18 @@ model Booking {
   // second order if createFinalPaymentOrdersForRide is ever re-invoked.
   finalPaymentOrderId String? @map("final_payment_order_id")
 
+  // Set once, by the passenger themselves (POST /bookings/:id/confirm-pickup),
+  // only while the ride is still OPEN/FULL — never by the driver, and never
+  // inferred from the ride's own status. Null means "not confirmed yet", not
+  // "declined": there is no decline action, only silence. This does NOT gate
+  // rideService.startRide — a driver may still start with unconfirmed
+  // passengers (steps.md decision: one unresponsive passenger must not strand
+  // the driver or the ride's other passengers) — it exists so the driver's
+  // own ride-list UI can show how many of their confirmed bookings actually
+  // confirmed pickup before they choose to start, and so that record survives
+  // for any later dispute over whether a trip happened.
+  pickupConfirmedAt DateTime? @map("pickup_confirmed_at") @db.Timestamptz(3)
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

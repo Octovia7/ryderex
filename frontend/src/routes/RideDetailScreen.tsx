@@ -5,7 +5,7 @@ import { useSession } from '../auth/session';
 import { withAuthRetry } from '../api/withAuthRetry';
 import { getRide } from '../api/rides';
 import type { Ride, RideSearchItem } from '../api/rides';
-import { createBooking, getBooking, getBookingCheckout } from '../api/bookings';
+import { confirmPickup, createBooking, getBooking, getBookingCheckout } from '../api/bookings';
 import type { Booking } from '../api/bookings';
 import { ApiError } from '../api/client';
 import { isValidCheckoutDetails, loadRazorpayCheckout } from '../api/razorpayCheckout';
@@ -95,6 +95,15 @@ export function RideDetailScreen() {
   // reflects whatever the backend's own webhook has already settled.
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
+
+  // "I'm in the car" — a passenger-only, idempotent confirmation that does
+  // NOT gate the driver's start/complete actions; it only records whether
+  // this passenger was actually picked up, surfaced on the driver's own
+  // ride-list UI. Synchronous guard, same reasoning as every other submit
+  // action in this app.
+  const confirmPickupInFlightRef = useRef(false);
+  const [confirmingPickup, setConfirmingPickup] = useState(false);
+  const [confirmPickupError, setConfirmPickupError] = useState<string | null>(null);
 
   // Opening Checkout.js. Synchronous ref, checked before any await, so a
   // rapid double-click/tap can't launch two modals at once — and stays true
@@ -243,6 +252,24 @@ export function RideDetailScreen() {
       }
     } finally {
       if (mountedRef.current) setCheckingStatus(false);
+    }
+  }
+
+  async function handleConfirmPickup() {
+    if (!booking || confirmPickupInFlightRef.current) return;
+    confirmPickupInFlightRef.current = true;
+    setConfirmPickupError(null);
+    setConfirmingPickup(true);
+    try {
+      const updated = await withAuthRetry(session, (token) => confirmPickup(booking.id, token));
+      if (mountedRef.current) setBooking(updated);
+    } catch (cause) {
+      if (mountedRef.current) {
+        setConfirmPickupError(cause instanceof ApiError ? cause.message : 'Something went wrong. Try again.');
+      }
+    } finally {
+      confirmPickupInFlightRef.current = false;
+      if (mountedRef.current) setConfirmingPickup(false);
     }
   }
 
@@ -529,7 +556,30 @@ export function RideDetailScreen() {
               </>
             )}
             {booking.status === 'CONFIRMED' && (
-              <p className="text-xs leading-relaxed text-ink-muted">Payment confirmed — this seat is booked.</p>
+              <>
+                <p className="text-xs leading-relaxed text-ink-muted">Payment confirmed — this seat is booked.</p>
+                {booking.pickupConfirmedAt ? (
+                  <p className="text-xs font-medium text-accent-700">✓ You confirmed pickup for this ride.</p>
+                ) : (
+                  <>
+                    <p className="text-xs leading-relaxed text-ink-muted">
+                      Once you're actually in the car, confirm pickup — this is what lets your driver
+                      know you're really there before they start the ride.
+                    </p>
+                    {confirmPickupError && (
+                      <p role="alert" className="text-xs text-red-600">{confirmPickupError}</p>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={confirmingPickup}
+                      onClick={() => void handleConfirmPickup()}
+                    >
+                      I'm in the car — confirm pickup
+                    </Button>
+                  </>
+                )}
+              </>
             )}
             {booking.status === 'PAYMENT_FAILED' && (
               <p className="text-xs leading-relaxed text-ink-muted">

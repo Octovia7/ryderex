@@ -17,6 +17,7 @@ const SELECT = {
   status: true,
   paymentOrderId: true,
   finalPaymentOrderId: true,
+  pickupConfirmedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -95,6 +96,25 @@ export async function cancel(client: Client, id: string, passengerId: string): P
   const result = await client.booking.updateMany({
     where: { id, passengerId, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
     data: { status: 'CANCELLED' },
+  });
+  return result.count === 1;
+}
+
+// Passenger-initiated pickup confirmation: a conditional UPDATE, same
+// ownership-in-the-WHERE shape as cancel above, valid only from CONFIRMED
+// (a PENDING_PAYMENT booking has no seat to be picked up from yet, and a
+// CANCELLED/COMPLETED one is a dead end). `pickupConfirmedAt: null` in the
+// WHERE makes this idempotent — a repeat call matches nothing and returns
+// false rather than overwriting an earlier, real confirmation timestamp
+// with a later one.
+export async function confirmPickup(
+  client: Client,
+  id: string,
+  passengerId: string,
+): Promise<boolean> {
+  const result = await client.booking.updateMany({
+    where: { id, passengerId, status: 'CONFIRMED', pickupConfirmedAt: null },
+    data: { pickupConfirmedAt: new Date() },
   });
   return result.count === 1;
 }
@@ -206,6 +226,7 @@ const RIDE_BOOKING_SELECT = {
   passengerId: true,
   seats: true,
   status: true,
+  pickupConfirmedAt: true,
   createdAt: true,
   passenger: { select: { name: true } },
 } as const;

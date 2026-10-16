@@ -46,3 +46,9 @@ export async function cancelBooking(req: Request, res: Response): Promise<void> 
   const booking = await bookingService.cancelBooking(req.user!.id, id);
   sendSuccess(res, booking);
 }
+
+export async function confirmPickup(req: Request, res: Response): Promise<void> {
+  const { id } = req.params as unknown as BookingIdParams;
+  const booking = await bookingService.confirmPickup(req.user!.id, id);
+  sendSuccess(res, booking);
+}

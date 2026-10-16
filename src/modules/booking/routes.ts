@@ -73,6 +73,20 @@ router.post(
   bookingController.cancelBooking,
 );
 
+// Confirming pickup is the PASSENGER's alone, same ownership shape as
+// cancel above. Role-gated PASSENGER + DRIVER (not PASSENGER-only) for the
+// same reason as every other route on this router — a DRIVER account is
+// still a passenger on bookings they made themselves; ownership (is the
+// caller THIS booking's passenger) is bookingService's job, not the role
+// gate's.
+router.post(
+  '/:id/confirm-pickup',
+  authenticate,
+  authorize('PASSENGER', 'DRIVER'),
+  validateParams(bookingIdParamsSchema),
+  bookingController.confirmPickup,
+);
+
 // Role-gated to PASSENGER + DRIVER for the same reason as above. No
 // rating-specific rate limiter (Phase 14 never defined one for ratings — the
 // shared `Idempotency-Key` pattern doesn't apply either, since a repeat

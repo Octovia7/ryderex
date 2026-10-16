@@ -40,6 +40,9 @@ export interface Booking {
   status: BookingStatus;
   paymentOrderId: string | null;
   finalPaymentOrderId: string | null;
+  // Set once, by the passenger themselves (confirmPickup below) — null means
+  // not confirmed yet, never "declined" (there is no decline action).
+  pickupConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +108,16 @@ export function getBookingCheckout(
 // cancels") — nothing in the response claims otherwise.
 export function cancelBooking(bookingId: string, accessToken?: string | null): Promise<Booking> {
   return apiFetch(`/bookings/${bookingId}/cancel`, { method: 'POST', accessToken });
+}
+
+// POST /api/v1/bookings/:id/confirm-pickup — passenger-only, idempotent.
+// Does NOT gate the ride's start/complete actions — it exists purely as a
+// per-passenger record of whether they were actually picked up, surfaced to
+// the driver before they start so an unconfirmed passenger is visible, not
+// silently trusted. 409 PICKUP_CONFIRMATION_NOT_AVAILABLE if the booking
+// isn't CONFIRMED (never paid, cancelled, etc).
+export function confirmPickup(bookingId: string, accessToken?: string | null): Promise<Booking> {
+  return apiFetch(`/bookings/${bookingId}/confirm-pickup`, { method: 'POST', accessToken });
 }
 
 export interface ListBookingsParams {

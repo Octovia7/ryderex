@@ -164,6 +164,7 @@ export interface RideBookingItem {
   passengerName: string;
   seats: number;
   status: BookingStatus;
+  pickupConfirmedAt: string | null;
   createdAt: string;
 }
 

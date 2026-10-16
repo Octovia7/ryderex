@@ -60,6 +60,7 @@ export interface BookingDto {
   status: BookingStatus;
   paymentOrderId: string | null;
   finalPaymentOrderId: string | null;
+  pickupConfirmedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +81,7 @@ function toBookingDto(booking: BookingRecord): BookingDto {
     status: booking.status,
     paymentOrderId: booking.paymentOrderId,
     finalPaymentOrderId: booking.finalPaymentOrderId,
+    pickupConfirmedAt: booking.pickupConfirmedAt,
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
   };
@@ -418,6 +420,7 @@ export interface RideBookingDto {
   passengerName: string;
   seats: number;
   status: BookingStatus;
+  pickupConfirmedAt: Date | null;
   createdAt: Date;
 }
 
@@ -476,6 +479,7 @@ export async function listBookingsForRide(
       passengerName: row.passenger.name,
       seats: row.seats,
       status: row.status,
+      pickupConfirmedAt: row.pickupConfirmedAt,
       createdAt: row.createdAt,
     })),
     nextCursor,
@@ -512,6 +516,55 @@ export async function listBookingsForRide(
 //     throwing rolls the cancellation back with it, so the booking is never
 //     left cancelled with its seats leaked.
 //
+// Passenger-only, idempotent: confirms the caller is actually in the car for
+// a booking that is already paid (CONFIRMED). Deliberately does NOT gate on
+// the ride's own status — a passenger may confirm the moment they get in,
+// whether that happens to land just before or just after the driver taps
+// "start" — the only thing that matters here is a true record of whether
+// THIS passenger was ever picked up, not a strict ordering against the
+// ride's own lifecycle. This never blocks rideService.startRide; it exists
+// so the driver's own ride-list UI can show confirmation counts before they
+// choose to start, and so the record survives for a later dispute.
+export async function confirmPickup(passengerId: string, bookingId: string): Promise<BookingDto> {
+  const booking = await bookingRepository.findById(bookingId);
+
+  if (!booking || booking.passengerId !== passengerId) {
+    throw bookingNotFound();
+  }
+
+  const confirmed = await bookingRepository.confirmPickup(prisma, bookingId, passengerId);
+
+  if (!confirmed) {
+    // Lost the conditional UPDATE: either already confirmed (idempotent —
+    // return the current state, not an error) or the booking isn't
+    // CONFIRMED (never paid, already cancelled, or the ride already
+    // completed and the booking moved on past CONFIRMED).
+    const current = await bookingRepository.findById(bookingId);
+
+    if (!current) {
+      throw bookingNotFound();
+    }
+
+    if (current.pickupConfirmedAt !== null) {
+      return toBookingDto(current);
+    }
+
+    throw new AppError({
+      statusCode: 409,
+      code: 'PICKUP_CONFIRMATION_NOT_AVAILABLE',
+      message: 'This booking cannot be confirmed right now.',
+    });
+  }
+
+  const updated = await bookingRepository.findById(bookingId);
+
+  if (!updated) {
+    throw bookingNotFound();
+  }
+
+  return toBookingDto(updated);
+}
+
 // No external call is made: refunds and forfeiture of the prepayment are not part
 // of this step, and nothing is sent to a payment provider.
 export async function cancelBooking(passengerId: string, bookingId: string): Promise<BookingDto> {
