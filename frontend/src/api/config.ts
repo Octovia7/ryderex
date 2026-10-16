@@ -7,6 +7,12 @@ export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1'
 ).replace(/\/+$/, '');
 
+// Socket.IO is mounted on the same HTTP server as the REST API
+// (src/infrastructure/socket/socketServer.ts takes the Express app's own
+// httpServer) — this is just API_BASE_URL with the /api/v1 suffix removed,
+// since the socket.io client connects to an origin, not a REST path.
+export const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api\/v1$/, '');
+
 // Deliberately separate from the backend's own MAP_PROVIDER_API_KEY — this
 // one is used directly from the browser (Geoapify's autocomplete endpoint
 // takes it as a plain query parameter), so it's visible in every page's

@@ -1,16 +1,15 @@
 import type { CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-// Transcribed from Main.dc.html's bottom nav. Search and Trips are real,
-// route-aware tabs now that both /search and /trips exist; Chat and Saathi
-// AI stay visually present but inert, since neither screen is built yet.
+// Transcribed from Main.dc.html's bottom nav. All four tabs are real,
+// route-aware now that /search, /trips, /messages and /support all exist.
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const inactiveItems = [
-    { label: 'Chat', path: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z' },
-    { label: 'Saathi AI', path: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z' },
+  const navItems = [
+    { label: 'Chat', path: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z', to: '/messages' },
+    { label: 'Saathi AI', path: 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z', to: '/support' },
   ];
 
   function tabStyle(active: boolean): CSSProperties {
@@ -80,30 +79,20 @@ export function BottomNav() {
         <span style={{ font: '600 10px var(--font-ui)' }}>Trips</span>
       </button>
 
-      {inactiveItems.map((item) => (
-        <span
+      {navItems.map((item) => (
+        <button
           key={item.label}
+          type="button"
           aria-label={item.label}
-          aria-disabled="true"
-          title="Not available yet"
-          style={{
-            width: 64,
-            height: 48,
-            borderRadius: 14,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 3,
-            color: 'var(--text-muted)',
-            opacity: 0.5,
-          }}
+          aria-current={location.pathname.startsWith(item.to) ? 'page' : undefined}
+          onClick={() => navigate(item.to)}
+          style={tabStyle(location.pathname.startsWith(item.to))}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
             <path d={item.path} />
           </svg>
           <span style={{ font: '500 10px var(--font-ui)' }}>{item.label}</span>
-        </span>
+        </button>
       ))}
     </nav>
   );
