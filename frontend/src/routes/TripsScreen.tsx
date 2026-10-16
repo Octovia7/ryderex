@@ -10,17 +10,21 @@ import { listRatingsForBooking, submitRating as submitRatingRequest } from '../a
 import type { Rating } from '../api/ratings';
 import { ApiError } from '../api/client';
 import { BottomNav } from '../components/BottomNav';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Textarea } from '../components/ui/Input';
+import { cn } from '../lib/cn';
 
 // Same two-tone chip language already established by RideDetailScreen's
-// booking-confirmation panel (warning for "needs attention", success-border
-// for "good") — this design system has no dedicated danger/red token, so
-// PAYMENT_FAILED reuses warning rather than inventing a new color.
-const STATUS_STYLES: Record<BookingStatus, { label: string; border: string; color: string }> = {
-  PENDING_PAYMENT: { label: 'PENDING PAYMENT', border: 'var(--warning-border)', color: 'var(--warning)' },
-  CONFIRMED: { label: 'CONFIRMED', border: 'var(--success-border)', color: 'var(--accent)' },
-  PAYMENT_FAILED: { label: 'PAYMENT FAILED', border: 'var(--warning-border)', color: 'var(--warning)' },
-  CANCELLED: { label: 'CANCELLED', border: 'var(--border)', color: 'var(--text-muted)' },
-  COMPLETED: { label: 'COMPLETED', border: 'var(--success-border)', color: 'var(--accent)' },
+// booking-confirmation panel (amber for "needs attention", emerald for
+// "good") — this design system has no dedicated danger token, so
+// PAYMENT_FAILED reuses amber rather than inventing a new color.
+const STATUS_STYLES: Record<BookingStatus, { label: string; className: string }> = {
+  PENDING_PAYMENT: { label: 'PENDING PAYMENT', className: 'border-amber-300 text-amber-700' },
+  CONFIRMED: { label: 'CONFIRMED', className: 'border-emerald-300 text-accent-700' },
+  PAYMENT_FAILED: { label: 'PAYMENT FAILED', className: 'border-amber-300 text-amber-700' },
+  CANCELLED: { label: 'CANCELLED', className: 'border-border-strong text-ink-faint' },
+  COMPLETED: { label: 'COMPLETED', className: 'border-emerald-300 text-accent-700' },
 };
 
 function formatDateTime(iso: string): string {
@@ -325,39 +329,27 @@ export function TripsScreen() {
     <div className="mx-auto flex max-w-xl flex-col gap-4 pb-24">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">My trips</h1>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading your trips…</p>
-        )}
+      <div className="flex flex-col gap-3">
+        {loading && <p className="py-12 text-center text-sm text-ink-muted">Loading your trips…</p>}
 
         {!loading && error && bookings.length === 0 && (
-          <div style={{ padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)', color: 'var(--warning)', fontSize: 14 }}>
-            {error}
-          </div>
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">{error}</div>
         )}
 
         {!loading && !error && bookings.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 16px', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+          <div className="flex flex-col items-center gap-4 py-12 text-center">
             <div>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>No trips yet</p>
-              <p style={{ margin: '6px 0 0', fontSize: 13 }}>Once you book a seat, it will show up here.</p>
+              <p className="text-sm font-semibold text-ink">No trips yet</p>
+              <p className="mt-1.5 text-xs text-ink-muted">Once you book a seat, it will show up here.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate('/search')}
-              style={{ height: 48, padding: '0 24px', borderRadius: 14, border: 0, background: 'var(--accent)', color: 'var(--accent-on)', font: '600 14px var(--font-ui)', cursor: 'pointer' }}
-            >
-              Find a ride
-            </button>
+            <Button onClick={() => navigate('/search')}>Find a ride</Button>
           </div>
         )}
 
         {!loading && bookings.length > 0 && (
           <>
             {error && (
-              <div style={{ padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)', color: 'var(--warning)', fontSize: 14 }}>
-                {error}
-              </div>
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">{error}</div>
             )}
 
             {bookings.map((booking) => {
@@ -379,83 +371,50 @@ export function TripsScreen() {
               const ratingSubmitError = ratingSubmitErrors[booking.id];
 
               return (
-                <div
-                  key={booking.id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    padding: 16,
-                    borderRadius: 22,
-                    background: 'var(--surface-1)',
-                    border: '1px solid var(--border-subtle)',
-                    boxShadow: 'var(--card-shadow)',
-                    color: 'var(--text)',
-                  }}
-                >
+                <Card key={booking.id} className="flex flex-col gap-2.5 p-4">
                   <button
                     type="button"
                     onClick={() => navigate(`/rides/${booking.rideId}`, { state: { bookingId: booking.id } })}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                      padding: 0,
-                      border: 0,
-                      background: 'transparent',
-                      color: 'var(--text)',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      width: '100%',
-                    }}
+                    className="flex w-full flex-col gap-2.5 border-0 bg-transparent p-0 text-left text-ink"
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        Booked {formatDateTime(booking.createdAt)}
-                      </span>
+                    <div className="flex items-start justify-between">
+                      <span className="text-xs text-ink-muted">Booked {formatDateTime(booking.createdAt)}</span>
                       <span
-                        style={{
-                          borderRadius: 'var(--radius-chip)',
-                          border: `1px solid ${statusStyle.border}`,
-                          background: 'var(--surface-3)',
-                          color: statusStyle.color,
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: 10,
-                          letterSpacing: '.08em',
-                          padding: '3px 9px',
-                          flexShrink: 0,
-                        }}
+                        className={cn(
+                          'shrink-0 rounded-full border bg-slate-50 px-2.5 py-0.5 font-mono text-[10px] tracking-wider',
+                          statusStyle.className,
+                        )}
                       >
                         {statusStyle.label}
                       </span>
                     </div>
 
                     {ride ? (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={{ font: '600 20px var(--font-mono)' }}>{formatDateTime(ride.departureTime)}</span>
-                        <span style={{ font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-mono text-lg font-semibold text-ink">
+                          {formatDateTime(ride.departureTime)}
+                        </span>
+                        <span className="font-mono text-xs text-ink-muted">
                           {(ride.routeDistanceMeters / 1000).toFixed(1)} km · {formatDuration(ride.routeDurationSeconds)}
                         </span>
                       </div>
                     ) : (
-                      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>Ride details unavailable</p>
+                      <p className="text-xs text-ink-muted">Ride details unavailable</p>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
+                    <div className="flex justify-between text-sm text-ink">
                       <span>₹{booking.farePerSeat} × {booking.seats} seat{booking.seats === 1 ? '' : 's'}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-                        ₹{booking.totalFare.toLocaleString('en-IN')}
-                      </span>
+                      <span className="font-mono">₹{booking.totalFare.toLocaleString('en-IN')}</span>
                     </div>
 
                     {booking.status === 'PENDING_PAYMENT' && (
-                      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+                      <p className="text-xs text-ink-muted">
                         Seat held but not yet paid for — it isn't confirmed for travel until payment
                         settles.
                       </p>
                     )}
                     {booking.status === 'CANCELLED' && (
-                      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+                      <p className="text-xs text-ink-muted">
                         This booking was cancelled. Any amount already paid for it is not automatically
                         refunded.
                       </p>
@@ -463,197 +422,114 @@ export function TripsScreen() {
                   </button>
 
                   {eligibleForCancel && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px dashed var(--border-subtle)', paddingTop: 10 }}>
-                      {cancelError && (
-                        <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                          {cancelError}
-                        </p>
-                      )}
+                    <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-2.5">
+                      {cancelError && <p role="alert" className="text-xs text-red-600">{cancelError}</p>}
                       {confirming ? (
                         <>
-                          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+                          <p className="text-xs text-ink-muted">
                             Cancel this booking? The prepayment isn't refunded for a self-cancellation.
                           </p>
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button
-                              type="button"
+                          <div className="flex gap-2">
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              className="flex-1"
                               disabled={cancelling}
+                              loading={cancelling}
                               onClick={() => void handleConfirmCancel(booking.id)}
-                              style={{
-                                flex: 1,
-                                height: 40,
-                                borderRadius: 'var(--radius-control)',
-                                border: 0,
-                                background: cancelling ? 'var(--surface-3)' : 'var(--warning)',
-                                color: cancelling ? 'var(--text-muted)' : 'var(--warning-on)',
-                                font: '700 13px var(--font-ui)',
-                                cursor: cancelling ? 'not-allowed' : 'pointer',
-                              }}
                             >
-                              {cancelling ? 'Cancelling…' : 'Yes, cancel'}
-                            </button>
-                            <button
-                              type="button"
+                              Yes, cancel
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="flex-1"
                               disabled={cancelling}
                               onClick={() => setConfirmingCancelId(null)}
-                              style={{
-                                flex: 1,
-                                height: 40,
-                                borderRadius: 'var(--radius-control)',
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface-2)',
-                                color: 'var(--text)',
-                                font: '600 13px var(--font-ui)',
-                                cursor: cancelling ? 'not-allowed' : 'pointer',
-                              }}
                             >
                               Keep booking
-                            </button>
+                            </Button>
                           </div>
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingCancelId(booking.id)}
-                          style={{
-                            height: 40,
-                            borderRadius: 'var(--radius-control)',
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface-2)',
-                            color: 'var(--text-2)',
-                            font: '600 13px var(--font-ui)',
-                            cursor: 'pointer',
-                          }}
-                        >
+                        <Button variant="secondary" size="sm" className="w-fit" onClick={() => setConfirmingCancelId(booking.id)}>
                           Cancel booking
-                        </button>
+                        </Button>
                       )}
                     </div>
                   )}
 
                   {eligibleForRating && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px dashed var(--border-subtle)', paddingTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleRatingPanel(booking.id)}
-                        style={{
-                          height: 40,
-                          borderRadius: 'var(--radius-control)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface-2)',
-                          color: 'var(--accent-2)',
-                          font: '600 13px var(--font-ui)',
-                          cursor: 'pointer',
-                        }}
-                      >
+                    <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-2.5">
+                      <Button variant="secondary" size="sm" className="w-fit" onClick={() => handleToggleRatingPanel(booking.id)}>
                         {ratingPanelOpen ? 'Hide rating' : 'Rate your driver'}
-                      </button>
+                      </Button>
 
                       {ratingPanelOpen && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {ratingsLoading && (
-                            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                              Checking rating status…
-                            </p>
-                          )}
+                        <div className="flex flex-col gap-2">
+                          {ratingsLoading && <p className="text-xs text-ink-muted">Checking rating status…</p>}
 
                           {!ratingsLoading && ratingLoadError && (
                             <>
-                              <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                                {ratingLoadError}
-                              </p>
-                              <button
-                                type="button"
+                              <p role="alert" className="text-xs text-red-600">{ratingLoadError}</p>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="w-fit"
                                 onClick={() => void loadRatingsForBooking(booking.id)}
-                                style={{
-                                  height: 44,
-                                  borderRadius: 'var(--radius-control)',
-                                  border: '1px solid var(--border)',
-                                  background: 'var(--surface-2)',
-                                  color: 'var(--text)',
-                                  font: '600 12px var(--font-ui)',
-                                  cursor: 'pointer',
-                                }}
                               >
                                 Retry
-                              </button>
+                              </Button>
                             </>
                           )}
 
                           {!ratingsLoading && !ratingLoadError && bookingRatings !== undefined && (
                             myRating ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <span style={{ font: '600 13px var(--font-ui)', color: 'var(--text)' }}>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-ink">
                                   You rated this driver {myRating.score}/5
                                 </span>
                                 {myRating.comment && (
-                                  <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                                    “{myRating.comment}”
-                                  </p>
+                                  <p className="text-xs text-ink-muted">“{myRating.comment}”</p>
                                 )}
                               </div>
                             ) : (
                               <>
-                                <div style={{ display: 'flex', gap: 6 }}>
+                                <div className="flex gap-1.5">
                                   {[1, 2, 3, 4, 5].map((score) => (
                                     <button
                                       key={score}
                                       type="button"
                                       aria-pressed={ratingFormScore === score}
                                       onClick={() => setRatingFormScore(score)}
-                                      style={{
-                                        flex: 1,
-                                        height: 40,
-                                        borderRadius: 'var(--radius-control)',
-                                        border: `1px solid ${ratingFormScore === score ? 'var(--accent)' : 'var(--border)'}`,
-                                        background: ratingFormScore === score ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                                        color: ratingFormScore === score ? 'var(--text)' : 'var(--text-2)',
-                                        font: '600 15px var(--font-mono)',
-                                        cursor: 'pointer',
-                                      }}
+                                      className={cn(
+                                        'flex-1 rounded-lg border py-2 font-mono text-sm font-semibold transition-colors',
+                                        ratingFormScore === score
+                                          ? 'border-accent-700 bg-accent-50 text-ink'
+                                          : 'border-border-strong bg-surface text-ink-muted',
+                                      )}
                                     >
                                       {score}
                                     </button>
                                   ))}
                                 </div>
-                                <textarea
+                                <Textarea
                                   placeholder="Add a comment (optional)"
                                   value={ratingFormComment}
                                   onChange={(event) => setRatingFormComment(event.target.value)}
                                   rows={2}
-                                  style={{
-                                    resize: 'vertical',
-                                    borderRadius: 'var(--radius-control)',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface-2)',
-                                    color: 'var(--text)',
-                                    font: '400 13px var(--font-ui)',
-                                    padding: 10,
-                                  }}
                                 />
                                 {ratingSubmitError && (
-                                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                                    {ratingSubmitError}
-                                  </p>
+                                  <p role="alert" className="text-xs text-red-600">{ratingSubmitError}</p>
                                 )}
-                                <button
-                                  type="button"
-                                  disabled={ratingFormScore === null || submittingRating}
+                                <Button
+                                  size="sm"
+                                  disabled={ratingFormScore === null}
+                                  loading={submittingRating}
                                   onClick={() => void handleSubmitRating(booking.id)}
-                                  style={{
-                                    height: 40,
-                                    borderRadius: 'var(--radius-control)',
-                                    border: 0,
-                                    background:
-                                      ratingFormScore === null || submittingRating ? 'var(--surface-3)' : 'var(--accent)',
-                                    color:
-                                      ratingFormScore === null || submittingRating ? 'var(--text-muted)' : 'var(--accent-on)',
-                                    font: '700 13px var(--font-ui)',
-                                    cursor: ratingFormScore === null || submittingRating ? 'not-allowed' : 'pointer',
-                                  }}
                                 >
-                                  {submittingRating ? 'Submitting…' : 'Submit rating'}
-                                </button>
+                                  Submit rating
+                                </Button>
                               </>
                             )
                           )}
@@ -661,19 +537,19 @@ export function TripsScreen() {
                       )}
                     </div>
                   )}
-                </div>
+                </Card>
               );
             })}
 
             {nextCursor && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                className="border border-dashed border-border-strong"
+                loading={loadingMore}
                 onClick={() => void handleLoadMore()}
-                disabled={loadingMore}
-                style={{ height: 52, borderRadius: 16, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-2)', font: '500 14px var(--font-ui)', cursor: loadingMore ? 'default' : 'pointer' }}
               >
-                {loadingMore ? 'Loading…' : 'Load more trips'}
-              </button>
+                Load more trips
+              </Button>
             )}
           </>
         )}
