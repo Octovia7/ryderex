@@ -30,10 +30,10 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-// Dark is the handoff's primary theme (HANDOFF.md: "Colour — dark theme
-// (primary)") — the default when nothing is stored yet.
+// Light is the default for a simpler, calmer first impression — the
+// handoff's dark neon theme is still fully available via the toggle.
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => readStoredTheme() ?? 'dark');
+  const [theme, setTheme] = useState<Theme>(() => readStoredTheme() ?? 'light');
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

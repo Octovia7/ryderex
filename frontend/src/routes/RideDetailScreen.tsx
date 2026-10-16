@@ -305,7 +305,7 @@ export function RideDetailScreen() {
           email: session.user?.email,
           contact: session.user?.phone,
         },
-        theme: { color: '#2ee6f6' },
+        theme: { color: '#0b8193' },
         modal: { ondismiss: releaseAndRecheck },
         handler: releaseAndRecheck,
       });

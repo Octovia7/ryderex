@@ -34,7 +34,7 @@
   --success-border: #1d4450;
   --warning-border: #4a3a1e;
 
-  --accent-glow: 0 10px 40px rgba(46, 230, 246, 0.35);
+  --accent-glow: 0 4px 16px rgba(46, 230, 246, 0.2);
 }
 
 :root[data-theme='light'] {
@@ -61,7 +61,7 @@
   --success-border: #dde4f0;
   --warning-border: #dde4f0;
 
-  --accent-glow: 0 10px 40px rgba(11, 129, 147, 0.35);
+  --accent-glow: 0 2px 10px rgba(11, 129, 147, 0.18);
 }
 
 body {
