@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -12,6 +13,9 @@ import type { RazorpayCheckoutInstance } from '../api/razorpayCheckout';
 import { LocationField } from '../components/LocationField';
 import type { LocationValue } from '../components/LocationField';
 import { upcomingKolkataDates } from '../utils/kolkataDate';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { cn } from '../lib/cn';
 
 const EMPTY_LOCATION: LocationValue = { label: '', lat: null, lng: null };
 const DATE_OPTIONS = upcomingKolkataDates(4);
@@ -296,413 +300,254 @@ export function OfferRideScreen() {
   }
 
   return (
-    <div>
-      <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            aria-label="Back to driver hub"
-            onClick={() => navigate('/driver')}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Offer a ride</h1>
+    <div className="mx-auto flex max-w-md flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Back to driver hub"
+          onClick={() => navigate('/driver')}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </button>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Offer a ride</h1>
+      </div>
+
+      {vehiclesLoading && <p className="py-12 text-center text-sm text-ink-muted">Loading your vehicles…</p>}
+
+      {!vehiclesLoading && vehiclesError && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">
+          {vehiclesError}
         </div>
+      )}
 
-        {vehiclesLoading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading your vehicles…</p>
-        )}
+      {!vehiclesLoading && !vehiclesError && eligibleVehicles.length === 0 && (
+        <Card className="flex flex-col gap-2.5 p-5">
+          <h2 className="text-base font-semibold text-ink">No verified vehicle yet</h2>
+          <p className="text-sm text-ink-muted">
+            You need at least one vehicle that's both active and admin-verified before you can post
+            a ride. Register one and upload its documents — it will appear here automatically once
+            an admin verifies it.
+          </p>
+          <Button className="mt-1" onClick={() => navigate('/driver/vehicle')}>
+            Register a vehicle
+          </Button>
+        </Card>
+      )}
 
-        {!vehiclesLoading && vehiclesError && (
-          <div style={{ padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)', color: 'var(--warning)', fontSize: 14 }}>
-            {vehiclesError}
-          </div>
-        )}
-
-        {!vehiclesLoading && !vehiclesError && eligibleVehicles.length === 0 && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: 20,
-              borderRadius: 22,
-              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>No verified vehicle yet</h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-              You need at least one vehicle that's both active and admin-verified before you can post
-              a ride. Register one and upload its documents — it will appear here automatically once
-              an admin verifies it.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/driver/vehicle')}
-              style={{
-                height: 48,
-                borderRadius: 'var(--radius-control)',
-                border: 0,
-                background: 'var(--accent)',
-                color: 'var(--accent-on)',
-                font: '700 14px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
-              Register a vehicle
-            </button>
-          </div>
-        )}
-
-        {!vehiclesLoading && !vehiclesError && eligibleVehicles.length > 0 && !ride && (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                VEHICLE
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {eligibleVehicles.map((vehicle) => {
-                  const on = vehicle.id === selectedVehicleId;
-                  return (
-                    <button
-                      key={vehicle.id}
-                      type="button"
-                      onClick={() => selectVehicle(vehicle)}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '12px 14px',
-                        borderRadius: 16,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                      }}
-                    >
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ font: '600 14px var(--font-ui)' }}>{vehicle.registrationNumber}</span>
-                        <span style={{ font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>
-                          {vehicle.vehicleType} · {vehicle.seatCapacity} seats{vehicle.isAc ? ' · AC' : ''}
-                        </span>
+      {!vehiclesLoading && !vehiclesError && eligibleVehicles.length > 0 && !ride && (
+        <>
+          <div className="flex flex-col gap-2.5">
+            <span className="font-mono text-[10px] tracking-wider text-ink-muted">VEHICLE</span>
+            <div className="flex flex-col gap-2">
+              {eligibleVehicles.map((vehicle) => {
+                const on = vehicle.id === selectedVehicleId;
+                return (
+                  <button
+                    key={vehicle.id}
+                    type="button"
+                    onClick={() => selectVehicle(vehicle)}
+                    className={cn(
+                      'flex items-center justify-between rounded-lg border px-3.5 py-3 text-left transition-colors',
+                      on ? 'border-accent-700 bg-accent-50' : 'border-border-strong bg-surface',
+                    )}
+                  >
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold text-ink">{vehicle.registrationNumber}</span>
+                      <span className="font-mono text-xs text-ink-muted">
+                        {vehicle.vehicleType} · {vehicle.seatCapacity} seats{vehicle.isAc ? ' · AC' : ''}
                       </span>
-                      {vehicle.model && (
-                        <span style={{ font: '500 11px var(--font-mono)', color: 'var(--text-2)' }}>{vehicle.model}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                    </span>
+                    {vehicle.model && (
+                      <span className="font-mono text-xs text-ink-faint">{vehicle.model}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div style={{ borderRadius: 20, background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '0 16px' }}>
-              <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <LocationField
-                  label="PICKUP"
-                  placeholder="Where does the ride start?"
-                  value={origin}
-                  onChange={setOrigin}
-                  dotColor="accent"
-                  dotShape="circle"
-                />
-              </div>
+          <div className="rounded-xl border border-border-strong bg-surface px-4">
+            <div className="border-b border-border-subtle">
               <LocationField
-                label="DROP"
-                placeholder="Where does the ride end?"
-                value={destination}
-                onChange={setDestination}
-                dotColor="accent-2"
-                dotShape="square"
+                label="PICKUP"
+                placeholder="Where does the ride start?"
+                value={origin}
+                onChange={setOrigin}
+                dotColor="accent"
+                dotShape="circle"
               />
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                DEPARTURE DATE
-              </span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {DATE_OPTIONS.map((option, index) => {
-                  const on = index === dateIndex;
-                  return (
-                    <button
-                      key={option.dateStr}
-                      type="button"
-                      onClick={() => setDateIndex(index)}
-                      style={{
-                        flex: 1,
-                        height: 56,
-                        borderRadius: 16,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 2,
-                        background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                        color: on ? 'var(--text)' : 'var(--text-2)',
-                      }}
-                    >
-                      <span style={{ font: '600 13px var(--font-ui)' }}>{option.label}</span>
-                      <span style={{ font: '500 11px var(--font-mono)', opacity: 0.8 }}>{option.sub}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                DEPARTURE TIME
-              </span>
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: 56,
-                  padding: '0 16px',
-                  borderRadius: 'var(--radius-control)',
-                  background: 'var(--surface-2)',
-                  border: `1px solid ${time ? 'var(--accent)' : 'var(--border)'}`,
-                }}
-              >
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(event) => setTime(event.target.value)}
-                  style={{
-                    flex: 1,
-                    background: 'transparent',
-                    border: 0,
-                    outline: 'none',
-                    color: 'var(--text)',
-                    font: '500 16px var(--font-ui)',
-                    padding: 0,
-                  }}
-                />
-              </span>
-              {time && !departureIsFuture && (
-                <span style={{ fontSize: 11, color: 'var(--warning)' }}>
-                  Pick a time that's still in the future for this date.
-                </span>
-              )}
-            </label>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '6px 6px 6px 14px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <span style={{ fontSize: 14, color: 'var(--text-2)' }}>
-                Seats {selectedVehicle ? `(max ${selectedVehicle.seatCapacity})` : ''}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  type="button"
-                  aria-label="Fewer seats"
-                  onClick={() => setSeats((s) => Math.max(1, s - 1))}
-                  style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 20, cursor: 'pointer' }}
-                >
-                  −
-                </button>
-                <span style={{ width: 28, textAlign: 'center', font: '600 18px var(--font-mono)', color: 'var(--accent)' }}>{seats}</span>
-                <button
-                  type="button"
-                  aria-label="More seats"
-                  onClick={() => setSeats((s) => Math.min(selectedVehicle?.seatCapacity ?? s, s + 1))}
-                  style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 20, cursor: 'pointer' }}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-              The fare and posting commission are calculated by the backend from the real route
-              distance and your vehicle type once you submit — there's no estimate shown here before
-              that.
-            </p>
-
-            {submitError && (
-              <p
-                role="alert"
-                style={{
-                  margin: 0,
-                  padding: '10px 14px',
-                  borderRadius: 12,
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--warning-border)',
-                  color: 'var(--warning)',
-                  fontSize: 13,
-                  lineHeight: 1.4,
-                }}
-              >
-                {submitError}
-              </p>
-            )}
-
-            <button
-              type="button"
-              disabled={!canSubmit || submitting}
-              onClick={() => void handleOffer()}
-              style={{
-                height: 58,
-                borderRadius: 18,
-                border: 0,
-                cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
-                background: canSubmit && !submitting ? 'var(--accent)' : 'var(--surface-3)',
-                color: canSubmit && !submitting ? 'var(--accent-on)' : 'var(--text-muted)',
-                font: '700 16px var(--font-ui)',
-                boxShadow: canSubmit && !submitting ? 'var(--accent-glow)' : 'none',
-              }}
-            >
-              {submitting ? 'Posting…' : 'Offer this ride'}
-            </button>
-          </>
-        )}
-
-        {ride && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: 16,
-              borderRadius: 22,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--success-border)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ font: '700 16px var(--font-ui)' }}>Ride posted</span>
-              <span
-                style={{
-                  borderRadius: 'var(--radius-chip)',
-                  border: '1px solid var(--warning-border)',
-                  background: 'var(--surface-3)',
-                  color: 'var(--warning)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '.08em',
-                  padding: '4px 10px',
-                }}
-              >
-                {ride.status === 'PENDING_PAYMENT' ? 'PENDING PAYMENT' : ride.status}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
-              <span>Fare per seat</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-                ₹{ride.farePerSeat.toLocaleString('en-IN')}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
-              <span>Posting commission</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
-                ₹{ride.postingCommissionAmount.toLocaleString('en-IN')}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
-              <span>Seats offered</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{ride.totalSeats}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
-              <span>Payment reference</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-2)' }}>
-                {ride.paymentOrderId}
-              </span>
-            </div>
-            <span style={{ height: 1, background: 'var(--border-subtle)' }} />
-
-            {ride.status === 'PENDING_PAYMENT' && (
-              <>
-                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                  This ride is not live or searchable yet — it stays hidden from passengers until
-                  the posting commission is paid. Pay now, or check again if you already completed
-                  payment elsewhere.
-                </p>
-                {checkoutError && (
-                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                    {checkoutError}
-                  </p>
-                )}
-                {statusCheckError && (
-                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                    {statusCheckError}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  disabled={checkoutOpening || checkingStatus}
-                  onClick={() => void handleOpenCheckout()}
-                  style={{
-                    height: 48,
-                    borderRadius: 'var(--radius-control)',
-                    border: 0,
-                    background: checkoutOpening || checkingStatus ? 'var(--surface-3)' : 'var(--accent)',
-                    color: checkoutOpening || checkingStatus ? 'var(--text-muted)' : 'var(--accent-on)',
-                    font: '700 14px var(--font-ui)',
-                    cursor: checkoutOpening || checkingStatus ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {checkoutOpening ? 'Opening checkout…' : 'Pay now'}
-                </button>
-                <button
-                  type="button"
-                  disabled={checkoutOpening || checkingStatus}
-                  onClick={() => void handleCheckStatus()}
-                  style={{
-                    height: 44,
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-3)',
-                    color: checkoutOpening || checkingStatus ? 'var(--text-muted)' : 'var(--accent-2)',
-                    font: '600 13px var(--font-ui)',
-                    cursor: checkoutOpening || checkingStatus ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {checkingStatus ? 'Checking…' : 'Check payment status'}
-                </button>
-              </>
-            )}
-            {(ride.status === 'OPEN' || ride.status === 'FULL') && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                Payment confirmed — this ride is live and searchable by passengers.
-              </p>
-            )}
-            {ride.status === 'CANCELLED' && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                This ride was cancelled.
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => navigate('/driver')}
-              style={{
-                height: 48,
-                borderRadius: 'var(--radius-control)',
-                border: '1px solid var(--border)',
-                background: 'var(--surface-3)',
-                color: 'var(--accent-2)',
-                font: '600 14px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
-              Back to driver hub
-            </button>
+            <LocationField
+              label="DROP"
+              placeholder="Where does the ride end?"
+              value={destination}
+              onChange={setDestination}
+              dotColor="accent-2"
+              dotShape="square"
+            />
           </div>
-        )}
-      </div>
+
+          <div className="flex flex-col gap-2.5">
+            <span className="font-mono text-[10px] tracking-wider text-ink-muted">DEPARTURE DATE</span>
+            <div className="flex gap-2">
+              {DATE_OPTIONS.map((option, index) => {
+                const on = index === dateIndex;
+                return (
+                  <button
+                    key={option.dateStr}
+                    type="button"
+                    onClick={() => setDateIndex(index)}
+                    className={cn(
+                      'flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors',
+                      on ? 'border-accent-700 bg-accent-50 text-ink' : 'border-border-strong bg-surface text-ink-muted',
+                    )}
+                  >
+                    <span className="text-sm font-semibold">{option.label}</span>
+                    <span className="font-mono text-xs opacity-80">{option.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <label className="flex flex-col gap-2">
+            <span className="font-mono text-[10px] tracking-wider text-ink-muted">DEPARTURE TIME</span>
+            <span
+              className={cn(
+                'flex h-14 items-center rounded-lg border px-4',
+                time ? 'border-accent-700' : 'border-border-strong',
+              )}
+            >
+              <input
+                type="time"
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+                className="flex-1 border-0 bg-transparent text-base font-medium text-ink outline-none"
+              />
+            </span>
+            {time && !departureIsFuture && (
+              <span className="text-xs text-red-600">Pick a time that's still in the future for this date.</span>
+            )}
+          </label>
+
+          <div className="flex items-center justify-between rounded-xl border border-border-strong bg-surface py-1.5 pl-3.5 pr-1.5">
+            <span className="text-sm text-ink">
+              Seats {selectedVehicle ? `(max ${selectedVehicle.seatCapacity})` : ''}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Fewer seats"
+                onClick={() => setSeats((s) => Math.max(1, s - 1))}
+                className="flex size-11 items-center justify-center rounded-lg border border-border-strong bg-slate-50 text-lg text-ink"
+              >
+                −
+              </button>
+              <span className="w-7 text-center font-mono text-lg font-semibold text-accent-700">{seats}</span>
+              <button
+                type="button"
+                aria-label="More seats"
+                onClick={() => setSeats((s) => Math.min(selectedVehicle?.seatCapacity ?? s, s + 1))}
+                className="flex size-11 items-center justify-center rounded-lg border border-border-strong bg-slate-50 text-lg text-ink"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs leading-relaxed text-ink-muted">
+            The fare and posting commission are calculated by the backend from the real route
+            distance and your vehicle type once you submit — there's no estimate shown here before
+            that.
+          </p>
+
+          {submitError && (
+            <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-700">
+              {submitError}
+            </p>
+          )}
+
+          <Button
+            size="lg"
+            className="h-14 text-base"
+            disabled={!canSubmit || submitting}
+            loading={submitting}
+            onClick={() => void handleOffer()}
+          >
+            Offer this ride
+          </Button>
+        </>
+      )}
+
+      {ride && (
+        <Card className="flex flex-col gap-2.5 border-emerald-200 bg-emerald-50/40 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-base font-bold text-ink">Ride posted</span>
+            <span className="rounded-full border border-amber-300 bg-slate-50 px-2.5 py-1 font-mono text-xs tracking-wider text-amber-700">
+              {ride.status === 'PENDING_PAYMENT' ? 'PENDING PAYMENT' : ride.status}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm text-ink">
+            <span>Fare per seat</span>
+            <span className="font-mono">₹{ride.farePerSeat.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-sm text-ink">
+            <span>Posting commission</span>
+            <span className="font-mono text-accent-700">
+              ₹{ride.postingCommissionAmount.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm text-ink">
+            <span>Seats offered</span>
+            <span className="font-mono">{ride.totalSeats}</span>
+          </div>
+          <div className="flex justify-between text-xs text-ink-muted">
+            <span>Payment reference</span>
+            <span className="font-mono text-ink-muted">{ride.paymentOrderId}</span>
+          </div>
+          <span className="h-px bg-border-subtle" />
+
+          {ride.status === 'PENDING_PAYMENT' && (
+            <>
+              <p className="text-xs leading-relaxed text-ink-muted">
+                This ride is not live or searchable yet — it stays hidden from passengers until
+                the posting commission is paid. Pay now, or check again if you already completed
+                payment elsewhere.
+              </p>
+              {checkoutError && <p role="alert" className="text-xs text-red-600">{checkoutError}</p>}
+              {statusCheckError && <p role="alert" className="text-xs text-red-600">{statusCheckError}</p>}
+              <Button
+                disabled={checkoutOpening || checkingStatus}
+                loading={checkoutOpening}
+                onClick={() => void handleOpenCheckout()}
+              >
+                Pay now
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={checkoutOpening || checkingStatus}
+                loading={checkingStatus}
+                onClick={() => void handleCheckStatus()}
+              >
+                Check payment status
+              </Button>
+            </>
+          )}
+          {(ride.status === 'OPEN' || ride.status === 'FULL') && (
+            <p className="text-xs leading-relaxed text-ink-muted">
+              Payment confirmed — this ride is live and searchable by passengers.
+            </p>
+          )}
+          {ride.status === 'CANCELLED' && (
+            <p className="text-xs leading-relaxed text-ink-muted">This ride was cancelled.</p>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => navigate('/driver')}>
+            Back to driver hub
+          </Button>
+        </Card>
+      )}
     </div>
   );
 }
