@@ -387,6 +387,13 @@ export function OfferRideScreen() {
               dotShape="square"
             />
           </div>
+          {(origin.label.length > 0 && origin.lat === null) ||
+          (destination.label.length > 0 && destination.lat === null) ? (
+            <p className="-mt-2 text-xs text-red-600">
+              Pick a pickup and drop point from the suggestions dropdown — typing an address alone
+              doesn't set its location.
+            </p>
+          ) : null}
 
           <div className="flex flex-col gap-2.5">
             <span className="font-mono text-[10px] tracking-wider text-ink-muted">DEPARTURE DATE</span>
