@@ -19,7 +19,7 @@ export function RoleDashboard({ title }: { title: string }) {
         padding: '48px 16px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 390, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ width: '100%', maxWidth: 440, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
           {user ? `Signed in as ${user.name} (${user.role})` : ''}
         </span>
@@ -28,9 +28,9 @@ export function RoleDashboard({ title }: { title: string }) {
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 440,
           borderRadius: 'var(--radius-card)',
-          background: 'var(--surface-1)',
+          background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
           border: '1px solid var(--border-subtle)',
           padding: 24,
           display: 'flex',
@@ -58,7 +58,7 @@ export function RoleDashboard({ title }: { title: string }) {
       </div>
 
       {user && (
-        <div style={{ width: '100%', maxWidth: 390, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <button
             type="button"
             onClick={() => navigate('/account')}

@@ -389,7 +389,7 @@ export function RideDetailScreen() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 390, margin: '0 auto', padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 6 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />
@@ -440,7 +440,7 @@ export function RideDetailScreen() {
               <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>TYPE</span>
               <span style={{ fontSize: 13, fontWeight: 600 }}>{searchItem.vehicle.vehicleType}</span>
             </div>
-            <div style={{ padding: '10px 12px', borderRadius: 14, background: searchItem.vehicle.isAc ? 'rgba(46,230,246,.06)' : 'var(--surface-2)', border: `1px solid ${searchItem.vehicle.isAc ? 'var(--success-border)' : 'var(--border-subtle)'}`, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ padding: '10px 12px', borderRadius: 14, background: searchItem.vehicle.isAc ? 'rgba(11,129,147,.06)' : 'var(--surface-2)', border: `1px solid ${searchItem.vehicle.isAc ? 'var(--success-border)' : 'var(--border-subtle)'}`, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>CLIMATE</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: searchItem.vehicle.isAc ? 'var(--accent)' : 'var(--text)' }}>
                 {searchItem.vehicle.isAc ? 'AC' : 'Non-AC'}

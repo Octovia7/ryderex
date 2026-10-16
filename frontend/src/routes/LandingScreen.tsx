@@ -12,7 +12,7 @@ const sectionWrap: CSSProperties = {
 
 const card: CSSProperties = {
   borderRadius: 'var(--radius-card)',
-  background: 'var(--surface-1)',
+  background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
   border: '1px solid var(--border-subtle)',
   padding: 24,
 };

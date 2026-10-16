@@ -27,7 +27,7 @@ export function BottomNav() {
       padding: 0,
       cursor: 'pointer',
       color: active ? 'var(--accent)' : 'var(--text-muted)',
-      background: active ? 'rgba(46,230,246,.08)' : 'transparent',
+      background: active ? 'rgba(11,129,147,.08)' : 'transparent',
     };
   }
 
@@ -50,7 +50,7 @@ export function BottomNav() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        boxShadow: '0 -10px 30px rgba(0,0,0,.3)',
+        boxShadow: '0 10px 30px rgba(16, 24, 40, 0.12)',
       }}
     >
       <button

@@ -352,7 +352,7 @@ export function DriverRidesScreen() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 390, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             type="button"
@@ -385,7 +385,7 @@ export function DriverRidesScreen() {
         )}
 
         {!loading && !error && rides.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>No rides posted yet</h2>
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
               Once you offer a ride, it will show up here with its current status.
@@ -423,7 +423,7 @@ export function DriverRidesScreen() {
                     gap: 10,
                     padding: 16,
                     borderRadius: 22,
-                    background: 'var(--surface-1)',
+                    background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
                     border: '1px solid var(--border-subtle)',
                   }}
                 >
@@ -671,7 +671,7 @@ export function DriverRidesScreen() {
                                                             height: 40,
                                                             borderRadius: 'var(--radius-control)',
                                                             border: `1px solid ${ratingFormScore === score ? 'var(--accent)' : 'var(--border)'}`,
-                                                            background: ratingFormScore === score ? 'rgba(46,230,246,.12)' : 'var(--surface-3)',
+                                                            background: ratingFormScore === score ? 'rgba(11,129,147,.12)' : 'var(--surface-3)',
                                                             color: ratingFormScore === score ? 'var(--text)' : 'var(--text-2)',
                                                             font: '600 15px var(--font-mono)',
                                                             cursor: 'pointer',

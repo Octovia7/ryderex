@@ -184,7 +184,7 @@ export function NotificationsScreen() {
                       borderRadius: 18,
                       textAlign: 'left',
                       cursor: unread ? 'pointer' : 'default',
-                      background: unread ? 'rgba(46,230,246,.06)' : 'var(--surface-1)',
+                      background: unread ? 'rgba(11,129,147,.06)' : 'var(--surface-1)',
                       border: `1px solid ${unread ? 'var(--accent)' : 'var(--border-subtle)'}`,
                       color: 'var(--text)',
                       width: '100%',

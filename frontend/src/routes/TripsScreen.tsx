@@ -400,6 +400,7 @@ export function TripsScreen() {
                     borderRadius: 22,
                     background: 'var(--surface-1)',
                     border: '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--card-shadow)',
                     color: 'var(--text)',
                   }}
                 >
@@ -616,7 +617,7 @@ export function TripsScreen() {
                                         height: 40,
                                         borderRadius: 'var(--radius-control)',
                                         border: `1px solid ${ratingFormScore === score ? 'var(--accent)' : 'var(--border)'}`,
-                                        background: ratingFormScore === score ? 'rgba(46,230,246,.12)' : 'var(--surface-2)',
+                                        background: ratingFormScore === score ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
                                         color: ratingFormScore === score ? 'var(--text)' : 'var(--text-2)',
                                         font: '600 15px var(--font-mono)',
                                         cursor: 'pointer',

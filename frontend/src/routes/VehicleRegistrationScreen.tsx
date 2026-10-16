@@ -266,7 +266,7 @@ export function VehicleRegistrationScreen() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 390, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             type="button"
@@ -309,7 +309,7 @@ export function VehicleRegistrationScreen() {
             {hasVehicles &&
               vehicles!.map((vehicle) => (
                 <div key={vehicle.id} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--card-shadow)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ font: '700 18px var(--font-mono)' }}>{vehicle.registrationNumber}</span>
                     <span
@@ -395,7 +395,7 @@ export function VehicleRegistrationScreen() {
             )}
 
             {showRegisterForm && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--card-shadow)' }}>
                 <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
                   Register the vehicle you'll drive for SaathiRide. An admin will need to verify it
                   (and its documents) before you can use it to offer a ride.
@@ -428,7 +428,7 @@ export function VehicleRegistrationScreen() {
                             borderRadius: 999,
                             cursor: 'pointer',
                             font: '600 12px var(--font-ui)',
-                            background: on ? 'rgba(46,230,246,.12)' : 'var(--surface-2)',
+                            background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
                             color: on ? 'var(--text)' : 'var(--text-2)',
                             border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                           }}

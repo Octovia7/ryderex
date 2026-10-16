@@ -24,7 +24,7 @@ export function HomeScreen() {
         padding: '48px 16px 100px',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 390, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ width: '100%', maxWidth: 440, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
           {user ? `Signed in as ${user.name} (${user.role})` : ''}
         </span>
@@ -55,7 +55,7 @@ export function HomeScreen() {
       </div>
 
       {isDriver && (
-        <div style={{ width: '100%', maxWidth: 390 }}>
+        <div style={{ width: '100%', maxWidth: 440 }}>
           <ModeSwitcher active="passenger" />
         </div>
       )}
@@ -63,9 +63,9 @@ export function HomeScreen() {
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 440,
           borderRadius: 'var(--radius-card)',
-          background: 'var(--surface-1)',
+          background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
           border: '1px solid var(--border-subtle)',
           padding: 24,
           display: 'flex',
@@ -83,7 +83,7 @@ export function HomeScreen() {
         </p>
       </div>
 
-      <div style={{ width: '100%', maxWidth: 390, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <button
           type="button"
           onClick={() => navigate('/search')}
@@ -121,7 +121,7 @@ export function HomeScreen() {
       </div>
 
       {user && (
-        <div style={{ width: '100%', maxWidth: 390, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <button
             type="button"
             onClick={() => navigate('/account')}

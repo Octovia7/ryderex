@@ -131,13 +131,10 @@ export function LoginScreen() {
         background: 'var(--bg)',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 390, display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
-      </div>
-
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 440,
           color: 'var(--text)',
           fontFamily: 'var(--font-ui)',
           display: 'flex',
@@ -212,7 +209,7 @@ export function LoginScreen() {
               borderRadius: 32,
               background: 'var(--surface-2)',
               border: '1px solid var(--accent)',
-              boxShadow: '0 0 50px rgba(46,230,246,.2), inset 0 0 26px rgba(46,230,246,.12)',
+              boxShadow: '0 0 50px rgba(11,129,147,.2), inset 0 0 26px rgba(11,129,147,.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -361,7 +358,7 @@ export function LoginScreen() {
                         borderRadius: 14,
                         background: 'var(--surface-2)',
                         border: `1px solid ${border}`,
-                        boxShadow: active ? '0 0 16px rgba(46,230,246,.25)' : 'none',
+                        boxShadow: active ? '0 0 16px rgba(11,129,147,.25)' : 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

@@ -12,7 +12,7 @@ export function RoutePreview({ height = 160 }: { height?: number }) {
         height,
         borderRadius: 22,
         overflow: 'hidden',
-        background: 'var(--surface-1)',
+        background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
         border: '1px solid var(--border-subtle)',
       }}
     >

@@ -191,7 +191,7 @@ export function ResultsScreen() {
                   borderRadius: 999,
                   cursor: 'pointer',
                   font: '500 13px var(--font-ui)',
-                  background: on ? 'rgba(46,230,246,.12)' : 'var(--surface-2)',
+                  background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
                   color: on ? 'var(--text)' : 'var(--text-2)',
                   border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                 }}
@@ -244,6 +244,7 @@ export function ResultsScreen() {
                   borderRadius: 22,
                   background: 'var(--surface-1)',
                   border: '1px solid var(--border-subtle)',
+                  boxShadow: 'var(--card-shadow)',
                   color: 'var(--text)',
                   textAlign: 'left',
                   cursor: 'pointer',
@@ -280,7 +281,7 @@ export function ResultsScreen() {
                         </span>
                       )}
                       {ride.vehicle.isAc && (
-                        <span style={{ font: '500 11px var(--font-mono)', padding: '3px 8px', borderRadius: 8, background: 'rgba(46,230,246,.1)', color: 'var(--accent)' }}>
+                        <span style={{ font: '500 11px var(--font-mono)', padding: '3px 8px', borderRadius: 8, background: 'rgba(11,129,147,.1)', color: 'var(--accent)' }}>
                           AC
                         </span>
                       )}

@@ -51,7 +51,7 @@ export function SearchScreen() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 390, margin: '0 auto', padding: '20px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '20px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
@@ -61,7 +61,7 @@ export function SearchScreen() {
                 borderRadius: 11,
                 background: 'var(--surface-2)',
                 border: '1px solid var(--accent)',
-                boxShadow: '0 0 18px rgba(46,230,246,.3)',
+                boxShadow: '0 0 18px rgba(11,129,147,.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -182,10 +182,10 @@ export function SearchScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 2,
-                    background: on ? 'rgba(46,230,246,.12)' : 'var(--surface-2)',
+                    background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
                     border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                     color: on ? 'var(--text)' : 'var(--text-2)',
-                    boxShadow: on ? '0 0 18px rgba(46,230,246,.2)' : 'none',
+                    boxShadow: on ? '0 0 18px rgba(11,129,147,.2)' : 'none',
                     transition: 'all .25s',
                   }}
                 >

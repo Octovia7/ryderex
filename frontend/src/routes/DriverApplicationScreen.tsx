@@ -133,7 +133,7 @@ export function DriverApplicationScreen() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 390, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button
             type="button"
@@ -156,7 +156,7 @@ export function DriverApplicationScreen() {
               gap: 10,
               padding: 20,
               borderRadius: 22,
-              background: 'var(--surface-1)',
+              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
               border: '1px solid var(--success-border)',
             }}
           >
@@ -202,7 +202,7 @@ export function DriverApplicationScreen() {
               gap: 14,
               padding: 20,
               borderRadius: 22,
-              background: 'var(--surface-1)',
+              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
               border: '1px solid var(--border-subtle)',
             }}
           >
@@ -273,7 +273,7 @@ export function DriverApplicationScreen() {
               gap: 14,
               padding: 20,
               borderRadius: 22,
-              background: 'var(--surface-1)',
+              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
               border: '1px solid var(--border-subtle)',
             }}
           >
