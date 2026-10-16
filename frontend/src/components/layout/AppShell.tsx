@@ -56,7 +56,7 @@ function AccountMenu() {
     setOpen(false);
   });
 
-  const initial = user?.name.trim().charAt(0).toUpperCase() ?? '?';
+  const initial = user?.name?.trim().charAt(0).toUpperCase() || '?';
 
   return (
     <div ref={ref} className="relative">
