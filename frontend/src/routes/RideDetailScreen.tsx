@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -10,6 +11,9 @@ import { ApiError } from '../api/client';
 import { isValidCheckoutDetails, loadRazorpayCheckout } from '../api/razorpayCheckout';
 import type { RazorpayCheckoutInstance } from '../api/razorpayCheckout';
 import { RoutePreview } from '../components/RoutePreview';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { cn } from '../lib/cn';
 
 interface LocationState {
   searchItem?: RideSearchItem;
@@ -340,24 +344,14 @@ export function RideDetailScreen() {
   }
 
   if (loading) {
-    return (
-      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
-        Loading ride…
-      </div>
-    );
+    return <p className="py-16 text-center text-sm text-ink-muted">Loading ride…</p>;
   }
 
   if (error || !ride) {
     return (
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-        <p style={{ color: 'var(--warning)' }}>{error ?? 'Ride not found.'}</p>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          style={{ height: 48, padding: '0 24px', borderRadius: 14, border: 0, background: 'var(--accent)', color: 'var(--accent-on)', font: '600 14px var(--font-ui)', cursor: 'pointer' }}
-        >
-          Go back
-        </button>
+      <div className="flex flex-col items-center gap-4 py-16 text-center">
+        <p className="text-sm text-red-600">{error ?? 'Ride not found.'}</p>
+        <Button onClick={() => navigate(-1)}>Go back</Button>
       </div>
     );
   }
@@ -372,319 +366,218 @@ export function RideDetailScreen() {
     <div className="mx-auto max-w-xl">
       <div style={{ position: 'relative' }}>
         <RoutePreview height={220} />
-        <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', justifyContent: 'space-between' }}>
+        <div className="absolute inset-x-4 top-4 flex justify-between">
           <button
             type="button"
             aria-label="Back to results"
             onClick={() => navigate(-1)}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(8,12,22,.6)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            className="flex size-11 items-center justify-center rounded-xl border border-border-strong bg-slate-900/60 backdrop-blur"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
+            <ChevronLeft className="size-[18px] text-white" aria-hidden />
           </button>
-          <span style={{ height: 44, padding: '0 12px', borderRadius: 14, background: 'rgba(8,12,22,.6)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, font: '500 12px var(--font-mono)', color: 'var(--text-2)' }}>
+          <span className="flex h-11 items-center gap-2 rounded-xl border border-border-strong bg-slate-900/60 px-3 font-mono text-xs text-white backdrop-blur">
             {(ride.routeDistanceMeters / 1000).toFixed(1)} km · {formatDuration(ride.routeDurationSeconds)}
           </span>
         </div>
       </div>
 
-      <div style={{ maxWidth: 440, margin: '0 auto', padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', gap: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />
-            <span style={{ width: 2, flex: 1, margin: '4px 0', background: 'linear-gradient(var(--accent), var(--accent-2))' }} />
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--accent-2)', boxShadow: '0 0 10px var(--accent-2)' }} />
+      <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
+        <div className="flex gap-3.5">
+          <div className="flex flex-col items-center pt-1.5">
+            <span className="size-2.5 rounded-full bg-accent-600" />
+            <span className="my-1 w-0.5 flex-1 bg-gradient-to-b from-accent-600 to-violet-500" />
+            <span className="size-2.5 rounded-sm bg-violet-500" />
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 16, fontWeight: 600 }}>{pickupLabel ?? 'Pickup'}</span>
-              <span style={{ font: '600 20px var(--font-mono)' }}>{formatTime(ride.departureTime)}</span>
+          <div className="flex flex-1 flex-col gap-3.5">
+            <div className="flex justify-between gap-2.5">
+              <span className="text-base font-semibold text-ink">{pickupLabel ?? 'Pickup'}</span>
+              <span className="font-mono text-xl font-semibold text-ink">{formatTime(ride.departureTime)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 16, fontWeight: 600 }}>{dropLabel ?? 'Drop'}</span>
-              <span style={{ font: '600 20px var(--font-mono)', color: 'var(--text-2)' }}>{formatTime(arrivalIso)}</span>
+            <div className="flex justify-between gap-2.5">
+              <span className="text-base font-semibold text-ink">{dropLabel ?? 'Drop'}</span>
+              <span className="font-mono text-xl font-semibold text-ink-muted">{formatTime(arrivalIso)}</span>
             </div>
           </div>
         </div>
 
         {searchItem ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, borderRadius: 20, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ width: 48, height: 48, borderRadius: '50%', padding: 2, background: 'conic-gradient(var(--accent), var(--accent-2), var(--accent))', flexShrink: 0 }}>
-              <span style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '600 16px var(--font-ui)' }}>
-                {searchItem.driver.name.slice(0, 2).toUpperCase()}
-              </span>
+          <div className="flex items-center gap-3 rounded-xl border border-border-subtle bg-slate-50 p-3.5">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent-100 text-base font-semibold text-accent-800">
+              {searchItem.driver.name.slice(0, 2).toUpperCase()}
             </span>
-            <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 16, fontWeight: 600 }}>{searchItem.driver.name}</span>
-              <span style={{ font: '400 12px var(--font-mono)', color: 'var(--text-muted)' }}>
-                <span style={{ color: 'var(--star)' }}>
-                  ★ {searchItem.driver.ratingAverage == null ? 'New' : searchItem.driver.ratingAverage.toFixed(1)}
-                </span>
+            <span className="flex flex-1 flex-col gap-0.5">
+              <span className="text-base font-semibold text-ink">{searchItem.driver.name}</span>
+              <span className="font-mono text-xs text-amber-600">
+                ★ {searchItem.driver.ratingAverage == null ? 'New' : searchItem.driver.ratingAverage.toFixed(1)}
               </span>
             </span>
           </div>
         ) : (
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+          <p className="text-xs text-ink-muted">
             Driver details aren't available when opening a ride directly — go back to results to see them.
           </p>
         )}
 
         {searchItem && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-            <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>VEHICLE</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{searchItem.vehicle.model ?? '—'}</span>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-0.5 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2.5">
+              <span className="font-mono text-[10px] tracking-wider text-ink-muted">VEHICLE</span>
+              <span className="text-sm font-semibold text-ink">{searchItem.vehicle.model ?? '—'}</span>
             </div>
-            <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>TYPE</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{searchItem.vehicle.vehicleType}</span>
+            <div className="flex flex-col gap-0.5 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2.5">
+              <span className="font-mono text-[10px] tracking-wider text-ink-muted">TYPE</span>
+              <span className="text-sm font-semibold text-ink">{searchItem.vehicle.vehicleType}</span>
             </div>
-            <div style={{ padding: '10px 12px', borderRadius: 14, background: searchItem.vehicle.isAc ? 'rgba(11,129,147,.06)' : 'var(--surface-2)', border: `1px solid ${searchItem.vehicle.isAc ? 'var(--success-border)' : 'var(--border-subtle)'}`, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>CLIMATE</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: searchItem.vehicle.isAc ? 'var(--accent)' : 'var(--text)' }}>
+            <div
+              className={cn(
+                'flex flex-col gap-0.5 rounded-lg border px-3 py-2.5',
+                searchItem.vehicle.isAc ? 'border-emerald-300 bg-accent-50' : 'border-border-subtle bg-slate-50',
+              )}
+            >
+              <span className="font-mono text-[10px] tracking-wider text-ink-muted">CLIMATE</span>
+              <span className={cn('text-sm font-semibold', searchItem.vehicle.isAc ? 'text-accent-700' : 'text-ink')}>
                 {searchItem.vehicle.isAc ? 'AC' : 'Non-AC'}
               </span>
             </div>
           </div>
         )}
 
-        <div style={{ padding: '14px 16px', borderRadius: 20, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-          <span style={{ font: '400 10px var(--font-mono)', letterSpacing: '.1em', color: 'var(--text-muted)' }}>AVAILABLE SEATS</span>
-          <div style={{ marginTop: 4, font: '600 22px var(--font-mono)', color: ride.availableSeats === 1 ? 'var(--warning)' : 'var(--accent)' }}>
+        <div className="rounded-xl border border-border-subtle bg-slate-50 px-4 py-3.5">
+          <span className="font-mono text-[10px] tracking-wider text-ink-muted">AVAILABLE SEATS</span>
+          <div
+            className={cn(
+              'mt-1 font-mono text-2xl font-semibold',
+              ride.availableSeats === 1 ? 'text-amber-600' : 'text-accent-700',
+            )}
+          >
             {ride.availableSeats} / {ride.totalSeats}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 22, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', fontSize: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-2)' }}>
+        <Card className="flex flex-col gap-2.5 p-4 text-sm">
+          <div className="flex justify-between text-ink">
             <span>₹{ride.farePerSeat} × {seats} seat{seats === 1 ? '' : 's'}</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>₹{totalFare.toLocaleString('en-IN')}</span>
+            <span className="font-mono">₹{totalFare.toLocaleString('en-IN')}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-2)' }}>
+          <div className="flex justify-between text-ink">
             <span>Pay now · 10% to hold</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>₹{prepay.toLocaleString('en-IN')}</span>
+            <span className="font-mono text-accent-700">₹{prepay.toLocaleString('en-IN')}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-2)' }}>
+          <div className="flex justify-between text-ink">
             <span>After the ride · 90%</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>₹{rest.toLocaleString('en-IN')}</span>
+            <span className="font-mono">₹{rest.toLocaleString('en-IN')}</span>
           </div>
-          <span style={{ height: 1, background: 'var(--border-subtle)' }} />
-          <span style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)' }}>
+          <span className="h-px bg-border-subtle" />
+          <span className="text-xs leading-relaxed text-ink-muted">
             Fare is locked when you book — it never changes later.
           </span>
-        </div>
+        </Card>
 
         {booking ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: 16,
-              borderRadius: 22,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--success-border)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ font: '700 16px var(--font-ui)' }}>Seat held</span>
-              <span
-                style={{
-                  borderRadius: 'var(--radius-chip)',
-                  border: '1px solid var(--warning-border)',
-                  background: 'var(--surface-3)',
-                  color: 'var(--warning)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '.08em',
-                  padding: '4px 10px',
-                }}
-              >
+          <Card className="flex flex-col gap-2.5 border-emerald-200 bg-emerald-50/40 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-base font-bold text-ink">Seat held</span>
+              <span className="rounded-full border border-amber-300 bg-slate-50 px-2.5 py-1 font-mono text-xs tracking-wider text-amber-700">
                 {booking.status === 'PENDING_PAYMENT' ? 'PENDING PAYMENT' : booking.status}
               </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
+            <div className="flex justify-between text-xs text-ink-muted">
               <span>Booking ID</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-2)' }}>{booking.id}</span>
+              <span className="font-mono text-ink-muted">{booking.id}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
+            <div className="flex justify-between text-sm text-ink">
               <span>₹{booking.farePerSeat} × {booking.seats} seat{booking.seats === 1 ? '' : 's'}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-                ₹{booking.totalFare.toLocaleString('en-IN')}
-              </span>
+              <span className="font-mono">₹{booking.totalFare.toLocaleString('en-IN')}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
+            <div className="flex justify-between text-sm text-ink">
               <span>Due now · 10%</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
-                ₹{booking.prepaidAmount.toLocaleString('en-IN')}
-              </span>
+              <span className="font-mono text-accent-700">₹{booking.prepaidAmount.toLocaleString('en-IN')}</span>
             </div>
             {booking.paymentOrderId && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
+              <div className="flex justify-between text-xs text-ink-muted">
                 <span>Payment reference</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-2)' }}>
-                  {booking.paymentOrderId}
-                </span>
+                <span className="font-mono text-ink-muted">{booking.paymentOrderId}</span>
               </div>
             )}
-            <span style={{ height: 1, background: 'var(--border-subtle)' }} />
+            <span className="h-px bg-border-subtle" />
 
             {booking.status === 'PENDING_PAYMENT' && (
               <>
-                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                <p className="text-xs leading-relaxed text-ink-muted">
                   Your seat is held but not yet paid for — it isn't confirmed for travel until
                   payment settles. Pay now, or check again if you already completed payment
                   elsewhere.
                 </p>
-                {checkoutError && (
-                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                    {checkoutError}
-                  </p>
-                )}
-                {statusCheckError && (
-                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                    {statusCheckError}
-                  </p>
-                )}
-                <button
-                  type="button"
+                {checkoutError && <p role="alert" className="text-xs text-red-600">{checkoutError}</p>}
+                {statusCheckError && <p role="alert" className="text-xs text-red-600">{statusCheckError}</p>}
+                <Button
                   disabled={checkoutOpening || checkingStatus}
+                  loading={checkoutOpening}
                   onClick={() => void handleOpenCheckout()}
-                  style={{
-                    height: 48,
-                    borderRadius: 'var(--radius-control)',
-                    border: 0,
-                    background: checkoutOpening || checkingStatus ? 'var(--surface-3)' : 'var(--accent)',
-                    color: checkoutOpening || checkingStatus ? 'var(--text-muted)' : 'var(--accent-on)',
-                    font: '700 14px var(--font-ui)',
-                    cursor: checkoutOpening || checkingStatus ? 'not-allowed' : 'pointer',
-                  }}
                 >
-                  {checkoutOpening ? 'Opening checkout…' : 'Pay now'}
-                </button>
-                <button
-                  type="button"
+                  Pay now
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={checkoutOpening || checkingStatus}
+                  loading={checkingStatus}
                   onClick={() => void handleCheckStatus()}
-                  style={{
-                    height: 44,
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-3)',
-                    color: checkoutOpening || checkingStatus ? 'var(--text-muted)' : 'var(--accent-2)',
-                    font: '600 13px var(--font-ui)',
-                    cursor: checkoutOpening || checkingStatus ? 'not-allowed' : 'pointer',
-                  }}
                 >
-                  {checkingStatus ? 'Checking…' : 'Check payment status'}
-                </button>
+                  Check payment status
+                </Button>
               </>
             )}
             {booking.status === 'CONFIRMED' && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                Payment confirmed — this seat is booked.
-              </p>
+              <p className="text-xs leading-relaxed text-ink-muted">Payment confirmed — this seat is booked.</p>
             )}
             {booking.status === 'PAYMENT_FAILED' && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+              <p className="text-xs leading-relaxed text-ink-muted">
                 This payment failed and the seat hold was released.
               </p>
             )}
             {booking.status === 'CANCELLED' && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                This booking was cancelled.
-              </p>
+              <p className="text-xs leading-relaxed text-ink-muted">This booking was cancelled.</p>
             )}
             {booking.status === 'COMPLETED' && (
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                This trip is complete.
-              </p>
+              <p className="text-xs leading-relaxed text-ink-muted">This trip is complete.</p>
             )}
-          </div>
+          </Card>
         ) : viewBookingId ? (
           // Viewing an existing booking (arrived from My Trips) — never the
           // "Book this ride" CTA, even while this is loading or failed: that
           // CTA only belongs to the separate, explicit create-a-new-booking
           // flow below.
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: 16,
-              borderRadius: 22,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
+          <Card className="flex flex-col gap-2.5 p-4">
             {viewedBookingLoading && (
-              <p style={{ margin: 0, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                Loading your booking…
-              </p>
+              <p className="text-center text-sm text-ink-muted">Loading your booking…</p>
             )}
             {!viewedBookingLoading && viewedBookingError && (
               <>
-                <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--warning)' }}>
-                  {viewedBookingError}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => loadViewedBooking(viewBookingId)}
-                  style={{
-                    height: 44,
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-3)',
-                    color: 'var(--accent-2)',
-                    font: '600 13px var(--font-ui)',
-                    cursor: 'pointer',
-                  }}
-                >
+                <p role="alert" className="text-sm text-red-600">{viewedBookingError}</p>
+                <Button variant="secondary" size="sm" className="w-fit" onClick={() => loadViewedBooking(viewBookingId)}>
                   Retry
-                </button>
+                </Button>
               </>
             )}
-          </div>
+          </Card>
         ) : (
           <>
             {submitError && (
-              <p
-                role="alert"
-                style={{
-                  margin: 0,
-                  padding: '10px 14px',
-                  borderRadius: 12,
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--warning-border)',
-                  color: 'var(--warning)',
-                  fontSize: 13,
-                  lineHeight: 1.4,
-                }}
-              >
+              <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-700">
                 {submitError}
               </p>
             )}
-            {!bookable && bookabilityReason && (
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>{bookabilityReason}</p>
-            )}
-            <button
-              type="button"
+            {!bookable && bookabilityReason && <p className="text-xs text-ink-muted">{bookabilityReason}</p>}
+            <Button
+              size="lg"
+              className="h-14 text-base"
               disabled={submitting || !bookable}
+              loading={submitting}
               onClick={() => void handleBook()}
-              style={{
-                height: 58,
-                borderRadius: 18,
-                border: 0,
-                cursor: submitting || !bookable ? 'not-allowed' : 'pointer',
-                background: submitting || !bookable ? 'var(--surface-3)' : 'var(--accent)',
-                color: submitting || !bookable ? 'var(--text-muted)' : 'var(--accent-on)',
-                font: '700 16px var(--font-ui)',
-                boxShadow: submitting || !bookable ? 'none' : 'var(--accent-glow)',
-              }}
             >
-              {submitting ? 'Booking…' : 'Book this ride'}
-            </button>
+              Book this ride
+            </Button>
           </>
         )}
       </div>
