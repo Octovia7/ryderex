@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -5,6 +6,8 @@ import { withAuthRetry } from '../api/withAuthRetry';
 import { searchRides, RIDE_SORTS } from '../api/rides';
 import type { RideSearchItem, RideSort } from '../api/rides';
 import { ApiError } from '../api/client';
+import { Button } from '../components/ui/Button';
+import { cn } from '../lib/cn';
 
 const SORT_LABELS: Record<RideSort, string> = {
   DEPARTURE_TIME: 'Departure',
@@ -127,57 +130,39 @@ export function ResultsScreen() {
 
   if (!hasValidParams) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>No search to show — start a new search.</p>
-        <button
-          type="button"
-          onClick={() => navigate('/search')}
-          style={{ height: 48, padding: '0 24px', borderRadius: 14, border: 0, background: 'var(--accent)', color: 'var(--accent-on)', font: '600 14px var(--font-ui)', cursor: 'pointer' }}
-        >
-          Back to search
-        </button>
+      <div className="flex flex-col items-center gap-4 py-16 text-center">
+        <p className="text-sm text-ink-muted">No search to show — start a new search.</p>
+        <Button onClick={() => navigate('/search')}>Back to search</Button>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-xl" style={{ display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          padding: '16px 16px 12px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--surface-1)',
-          borderRadius: 'var(--radius-card)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="mx-auto flex max-w-xl flex-col gap-4">
+      <div className="flex flex-col gap-3.5 rounded-xl border border-border-subtle bg-surface p-4">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             aria-label="Back to search"
             onClick={() => navigate('/search')}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-slate-50"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
+            <ChevronLeft className="size-[18px] text-ink" aria-hidden />
           </button>
-          <div style={{ flex: 1, minWidth: 0, padding: '8px 12px', borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickupLabel}</span>
-              <span style={{ color: 'var(--text-muted)' }}>→</span>
-              <span style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--accent-2)', flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{dropLabel}</span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-lg border border-border-strong bg-slate-50 px-3 py-2">
+            <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap text-sm font-semibold text-ink">
+              <span className="size-1.5 shrink-0 rounded-full bg-accent-600" />
+              <span className="overflow-hidden text-ellipsis">{pickupLabel}</span>
+              <span className="text-ink-muted">→</span>
+              <span className="size-1.5 shrink-0 rounded-sm bg-violet-500" />
+              <span className="overflow-hidden text-ellipsis">{dropLabel}</span>
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+            <span className="font-mono text-xs text-ink-muted">
               {date} · {seats} seat{seats === 1 ? '' : 's'} · 10 km radius
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+        <div className="flex gap-2 overflow-x-auto">
           {RIDE_SORTS.map((s) => {
             const on = s === sort;
             return (
@@ -185,40 +170,29 @@ export function ResultsScreen() {
                 key={s}
                 type="button"
                 onClick={() => setSort(s)}
-                style={{
-                  flexShrink: 0,
-                  height: 36,
-                  padding: '0 14px',
-                  borderRadius: 999,
-                  cursor: 'pointer',
-                  font: '500 13px var(--font-ui)',
-                  background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                  color: on ? 'var(--text)' : 'var(--text-2)',
-                  border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                }}
+                className={cn(
+                  'h-9 shrink-0 rounded-full border px-3.5 text-xs font-medium transition-colors',
+                  on ? 'border-accent-700 bg-accent-50 text-ink' : 'border-border-strong bg-slate-50 text-ink-muted',
+                )}
               >
                 {SORT_LABELS[s]}
               </button>
             );
           })}
         </div>
-      </header>
+      </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Searching rides…</p>
-        )}
+      <div className="flex flex-col gap-3">
+        {loading && <p className="py-12 text-center text-sm text-ink-muted">Searching rides…</p>}
 
         {!loading && error && (
-          <div style={{ padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)', color: 'var(--warning)', fontSize: 14 }}>
-            {error}
-          </div>
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">{error}</div>
         )}
 
         {!loading && !error && items.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>No rides found</p>
-            <p style={{ margin: 0, fontSize: 13 }}>
+          <div className="flex flex-col gap-2 py-12 text-center">
+            <p className="text-sm font-semibold text-ink">No rides found</p>
+            <p className="text-xs text-ink-muted">
               No rides match this route and date yet. Try a different date or widen your pickup/drop.
             </p>
           </div>
@@ -226,63 +200,54 @@ export function ResultsScreen() {
 
         {!loading && !error && items.length > 0 && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                <span style={{ color: 'var(--text)', fontWeight: 600 }}>{items.length} ride{items.length === 1 ? '' : 's'}</span> match both pickup and drop
-              </span>
-            </div>
+            <span className="text-xs text-ink-muted">
+              <span className="font-semibold text-ink">{items.length} ride{items.length === 1 ? '' : 's'}</span> match both pickup and drop
+            </span>
 
             {items.map((ride) => (
               <button
                 key={ride.id}
                 type="button"
                 onClick={() => openRide(ride)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  padding: 16,
-                  borderRadius: 22,
-                  background: 'var(--surface-1)',
-                  border: '1px solid var(--border-subtle)',
-                  boxShadow: 'var(--card-shadow)',
-                  color: 'var(--text)',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
+                className="flex flex-col gap-3.5 rounded-xl border border-border-subtle bg-surface p-4 text-left shadow-sm transition-shadow hover:shadow-md"
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ font: '600 26px var(--font-mono)', letterSpacing: '-0.02em' }}>{formatTime(ride.departureTime)}</span>
-                    <span style={{ font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>{ride.vehicle.vehicleType}</span>
+                <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-mono text-2xl font-semibold tracking-tight text-ink">
+                      {formatTime(ride.departureTime)}
+                    </span>
+                    <span className="font-mono text-xs text-ink-muted">{ride.vehicle.vehicleType}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                    <span style={{ font: '700 22px var(--font-ui)', color: 'var(--accent)' }}>₹{ride.farePerSeat}</span>
-                    <span style={{ font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>per seat</span>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-xl font-bold text-accent-700">₹{ride.farePerSeat}</span>
+                    <span className="font-mono text-xs text-ink-muted">per seat</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ width: 40, height: 40, borderRadius: '50%', padding: 2, background: 'conic-gradient(var(--accent), var(--accent-2), var(--accent))', flexShrink: 0 }}>
-                    <span style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '600 14px var(--font-ui)' }}>
-                      {ride.driver.name.slice(0, 2).toUpperCase()}
-                    </span>
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-100 text-sm font-semibold text-accent-800">
+                    {ride.driver.name.slice(0, 2).toUpperCase()}
                   </span>
-                  <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600 }}>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-ink">
                       {ride.driver.name}
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, font: '500 12px var(--font-mono)', color: ride.driver.ratingAverage == null ? 'var(--accent-2)' : 'var(--star)' }}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-0.5 font-mono text-xs',
+                          ride.driver.ratingAverage == null ? 'text-violet-600' : 'text-amber-600',
+                        )}
+                      >
                         ★ {ride.driver.ratingAverage == null ? 'New' : ride.driver.ratingAverage.toFixed(1)}
                       </span>
                     </span>
-                    <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span className="flex flex-wrap gap-1.5">
                       {ride.vehicle.model && (
-                        <span style={{ font: '500 11px var(--font-mono)', padding: '3px 8px', borderRadius: 8, background: 'var(--surface-3)', color: 'var(--text-2)' }}>
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-ink-muted">
                           {ride.vehicle.model}
                         </span>
                       )}
                       {ride.vehicle.isAc && (
-                        <span style={{ font: '500 11px var(--font-mono)', padding: '3px 8px', borderRadius: 8, background: 'rgba(11,129,147,.1)', color: 'var(--accent)' }}>
+                        <span className="rounded-md bg-accent-50 px-2 py-0.5 font-mono text-xs text-accent-700">
                           AC
                         </span>
                       )}
@@ -290,44 +255,38 @@ export function ResultsScreen() {
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ display: 'flex', justifyContent: 'space-between', font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>
-                      <span>pickup</span>
-                      <span style={{ color: 'var(--text)' }}>{km(ride.pickupDistanceMeters)} km</span>
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ display: 'flex', justifyContent: 'space-between', font: '400 11px var(--font-mono)', color: 'var(--text-muted)' }}>
-                      <span>drop</span>
-                      <span style={{ color: 'var(--text)' }}>{km(ride.destinationDistanceMeters)} km</span>
-                    </span>
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <span className="flex justify-between font-mono text-xs text-ink-muted">
+                    <span>pickup</span>
+                    <span className="text-ink">{km(ride.pickupDistanceMeters)} km</span>
+                  </span>
+                  <span className="flex justify-between font-mono text-xs text-ink-muted">
+                    <span>drop</span>
+                    <span className="text-ink">{km(ride.destinationDistanceMeters)} km</span>
+                  </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px dashed var(--border-subtle)' }}>
-                  <span style={{ font: '500 12px var(--font-mono)', color: ride.availableSeats === 1 ? 'var(--warning)' : 'var(--text-2)' }}>
+                <div className="flex items-center justify-between border-t border-dashed border-border-subtle pt-3">
+                  <span className={cn('font-mono text-xs', ride.availableSeats === 1 ? 'text-amber-600' : 'text-ink-muted')}>
                     {ride.availableSeats === 1 ? 'Last seat' : `${ride.availableSeats} seats left`}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                  <span className="flex items-center gap-1 text-sm font-semibold text-accent-700">
                     View ride
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 6l6 6-6 6" />
-                    </svg>
+                    <ChevronRight className="size-3.5" aria-hidden />
                   </span>
                 </div>
               </button>
             ))}
 
             {nextCursor && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                className="border border-dashed border-border-strong"
+                loading={loadingMore}
                 onClick={handleLoadMore}
-                disabled={loadingMore}
-                style={{ height: 52, borderRadius: 16, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-2)', font: '500 14px var(--font-ui)', cursor: loadingMore ? 'default' : 'pointer' }}
               >
-                {loadingMore ? 'Loading…' : 'Load more rides'}
-              </button>
+                Load more rides
+              </Button>
             )}
           </>
         )}
