@@ -67,7 +67,7 @@ const steps = [
   {
     Icon: Search,
     title: 'Search your route',
-    body: 'Tell us where you are going and when. Rydex matches drivers already making that journey, within 10 km of both ends of your trip.',
+    body: 'Tell us where you are going and when. Ryderex matches drivers already making that journey, within 10 km of both ends of your trip.',
   },
   {
     Icon: BadgeCheck,
@@ -133,7 +133,7 @@ export function LandingScreen() {
           }}
         >
           <span style={{ font: '700 20px var(--font-ui)', color: 'var(--accent-2)', letterSpacing: '-0.02em' }}>
-            Rydex
+            Ryderex
           </span>
           <button
             type="button"
@@ -198,7 +198,7 @@ export function LandingScreen() {
                   color: '#ffffff',
                 }}
               >
-                Rydex: sustainable commuting for the conscious commuter
+                Ryderex: sustainable commuting for the conscious commuter
               </h1>
               <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: 'rgba(255,255,255,.82)' }}>
                 Travel the route you were taking anyway, with people going the same way. Fewer cars, a
@@ -375,7 +375,7 @@ export function LandingScreen() {
         <section style={sectionWrap}>
           <h2 style={sectionHeading}>Sharing a car with a stranger</h2>
           <p style={{ ...bodyText, marginBottom: 20 }}>
-            It only works if it feels safe. Here is what Rydex actually does about that.
+            It only works if it feels safe. Here is what Ryderex actually does about that.
           </p>
           <div style={gridAutoFit(260)}>
             {safetyPoints.map(({ Icon, title, body }) => (
@@ -408,7 +408,7 @@ export function LandingScreen() {
                 <h2 style={{ ...sectionHeading, margin: 0 }}>Already making the trip?</h2>
               </div>
               <p style={{ ...bodyText, marginTop: 8 }}>
-                Publish the journey you are taking anyway and sell the seats you are not using. Rydex works
+                Publish the journey you are taking anyway and sell the seats you are not using. Ryderex works
                 out a fair fare from your actual route, so you are not guessing what to charge. You will
                 need your licence and your car’s papers verified first — both are reviewed by a person,
                 once.

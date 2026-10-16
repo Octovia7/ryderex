@@ -150,7 +150,7 @@ export function AppShell() {
       <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-6">
           <Link to="/" className="mr-2 text-lg font-semibold tracking-tight text-accent-700">
-            Rydex
+            Ryderex
           </Link>
 
           {signedIn && (

@@ -100,7 +100,7 @@ export function SupportScreen() {
         <Sparkles className="size-5 text-accent-700" aria-hidden />
         <div>
           <h1 className="text-sm font-semibold text-ink">Saathi AI</h1>
-          <p className="text-xs text-ink-muted">Ask about bookings, payments or how Rydex works.</p>
+          <p className="text-xs text-ink-muted">Ask about bookings, payments or how Ryderex works.</p>
         </div>
       </div>
 
