@@ -195,8 +195,45 @@ export function DriverRidesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetches a fresh (never cached) snapshot of a ride's CONFIRMED bookings,
+  // right before start/complete, specifically to answer "how many haven't
+  // confirmed pickup" accurately at the moment it matters — the lazily
+  // loaded `passengersByRide` cache below exists for browsing, not for this
+  // check, and could be stale or never populated at all.
+  async function countUnconfirmedPickups(rideId: string): Promise<{ unconfirmed: number; total: number }> {
+    const page = await withAuthRetry(session, (token) => listRideBookings(rideId, { limit: 50 }, token));
+    const confirmed = page.items.filter((booking) => booking.status === 'CONFIRMED');
+    return {
+      total: confirmed.length,
+      unconfirmed: confirmed.filter((booking) => booking.pickupConfirmedAt === null).length,
+    };
+  }
+
   async function handleAction(ride: Ride, action: RideAction) {
     if (actionInFlightRef.current.has(ride.id)) return;
+
+    // Start/complete only: never silently proceed when some already-paid
+    // passengers haven't confirmed they're actually in the car. This does
+    // NOT block the action — the driver can still choose to proceed (one
+    // unresponsive passenger must not strand everyone else) — it just turns
+    // a silent one-tap action into a deliberate, acknowledged one.
+    if (action === 'start' || action === 'complete') {
+      try {
+        const { unconfirmed, total } = await countUnconfirmedPickups(ride.id);
+        if (unconfirmed > 0) {
+          const verb = action === 'start' ? 'start' : 'complete';
+          const proceed = window.confirm(
+            `${unconfirmed} of ${total} confirmed passenger${total === 1 ? '' : 's'} ` +
+              `${unconfirmed === 1 ? "hasn't" : "haven't"} confirmed pickup yet. ${verb === 'start' ? 'Start' : 'Complete'} this ride anyway?`,
+          );
+          if (!proceed) return;
+        }
+      } catch {
+        // Could not fetch the check itself (network, etc.) — never block the
+        // real action on a failed WARNING check; proceed as if unverified.
+      }
+    }
+
     actionInFlightRef.current.add(ride.id);
     setActiveAction({ rideId: ride.id, action });
     setActionErrors((current) => {
