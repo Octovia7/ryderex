@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { RoutePreview } from '../components/RoutePreview';
 import { LocationField } from '../components/LocationField';
 import type { LocationValue } from '../components/LocationField';
@@ -82,7 +81,6 @@ export function SearchScreen() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <ThemeToggle />
             <button
               type="button"
               onClick={() => navigate('/account')}

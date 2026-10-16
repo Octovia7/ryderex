@@ -9,7 +9,6 @@ import type { Ride } from '../api/rides';
 import { listRatingsForBooking, submitRating as submitRatingRequest } from '../api/ratings';
 import type { Rating } from '../api/ratings';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { BottomNav } from '../components/BottomNav';
 
 // Same two-tone chip language already established by RideDetailScreen's
@@ -335,7 +334,6 @@ export function TripsScreen() {
         }}
       >
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em' }}>My trips</h1>
-        <ThemeToggle />
       </header>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 100px', display: 'flex', flexDirection: 'column', gap: 12 }}>

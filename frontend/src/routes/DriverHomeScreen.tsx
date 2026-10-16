@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { ModeSwitcher } from '../components/ModeSwitcher';
 
 // Driver-only hub (RequireRole restricts this to DRIVER) — links into
@@ -25,7 +24,6 @@ export function DriverHomeScreen() {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
           {user ? `Signed in as ${user.name} (${user.role})` : ''}
         </span>
-        <ThemeToggle />
       </div>
 
       <div style={{ width: '100%', maxWidth: 390 }}>

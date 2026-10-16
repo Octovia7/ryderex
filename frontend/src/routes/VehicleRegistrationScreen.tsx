@@ -11,7 +11,6 @@ import {
 } from '../api/vehicles';
 import type { Vehicle, VehicleType, VehicleDocumentType } from '../api/vehicles';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 
 // Mirrors src/middleware/uploadDocument.ts's own magic-byte allow-list and
 // 5 MB multer limit exactly — the same UX-only check already used for the
@@ -280,7 +279,6 @@ export function VehicleRegistrationScreen() {
             </svg>
           </button>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>My vehicle</h1>
-          <ThemeToggle />
         </div>
 
         {loading && vehicles === null && (

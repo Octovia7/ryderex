@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { ModeSwitcher } from '../components/ModeSwitcher';
 import { BottomNav } from '../components/BottomNav';
 
@@ -52,7 +51,6 @@ export function HomeScreen() {
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
           </button>
-          <ThemeToggle />
         </div>
       </div>
 

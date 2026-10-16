@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { useSession } from '../auth/session';
 
 // Placeholder shell for /admin — RequireRole restricts this route to
@@ -24,7 +23,6 @@ export function RoleDashboard({ title }: { title: string }) {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
           {user ? `Signed in as ${user.name} (${user.role})` : ''}
         </span>
-        <ThemeToggle />
       </div>
 
       <div

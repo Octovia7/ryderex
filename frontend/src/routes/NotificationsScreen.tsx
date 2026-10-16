@@ -5,7 +5,6 @@ import { withAuthRetry } from '../api/withAuthRetry';
 import { listNotifications, markNotificationRead } from '../api/notifications';
 import type { Notification } from '../api/notifications';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 
 function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-IN', {
@@ -135,7 +134,6 @@ export function NotificationsScreen() {
           </svg>
         </button>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Notifications</h1>
-        <ThemeToggle />
       </header>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 48px', display: 'flex', flexDirection: 'column', gap: 10 }}>

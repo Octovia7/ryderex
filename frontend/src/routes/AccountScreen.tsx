@@ -6,7 +6,6 @@ import { getMe, updateMe } from '../api/users';
 import type { UpdateProfileInput } from '../api/users';
 import type { User } from '../api/auth';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('en-IN', {
@@ -254,7 +253,6 @@ export function AccountScreen() {
             </svg>
           </button>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Account</h1>
-          <ThemeToggle />
         </div>
 
         {loading && (

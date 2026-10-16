@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { ThemeProvider } from './theme';
 import { SessionProvider } from './auth/session';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { RequireRole } from './auth/RequireRole';
 import { canAccessDriverRoutes, canAccessPassengerRoutes } from './auth/roles';
+import { LandingScreen } from './routes/LandingScreen';
 import { LoginScreen } from './routes/LoginScreen';
 import { HomeScreen } from './routes/HomeScreen';
 import { DriverHomeScreen } from './routes/DriverHomeScreen';
@@ -21,11 +21,10 @@ import { TripsScreen } from './routes/TripsScreen';
 
 export function App() {
   return (
-    <ThemeProvider>
-      <SessionProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/search" replace />} />
-          <Route path="/login" element={<LoginScreen />} />
+    <SessionProvider>
+      <Routes>
+        <Route path="/" element={<LandingScreen />} />
+        <Route path="/login" element={<LoginScreen />} />
           <Route element={<ProtectedRoute />}>
             {/* Universal: every authenticated account — PASSENGER, DRIVER,
                 or ADMIN — can view/edit its own profile. Not role-gated. */}
@@ -67,7 +66,6 @@ export function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </SessionProvider>
-    </ThemeProvider>
+    </SessionProvider>
   );
 }

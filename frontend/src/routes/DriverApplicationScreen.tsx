@@ -7,7 +7,6 @@ import type { User } from '../api/auth';
 import { submitDriverApplication } from '../api/driverApplication';
 import type { DriverApplicationResult } from '../api/driverApplication';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 
 // Mirrors userRepository.markDriverApplicationPending's own WHERE clause
 // (driverLicenseStatus null or REJECTED) plus the role check this screen's
@@ -147,7 +146,6 @@ export function DriverApplicationScreen() {
             </svg>
           </button>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Apply to drive</h1>
-          <ThemeToggle />
         </div>
 
         {result ? (

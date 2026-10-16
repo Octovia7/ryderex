@@ -9,7 +9,6 @@ import type { CreateRideInput, Ride } from '../api/rides';
 import { ApiError } from '../api/client';
 import { isValidCheckoutDetails, loadRazorpayCheckout } from '../api/razorpayCheckout';
 import type { RazorpayCheckoutInstance } from '../api/razorpayCheckout';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { LocationField } from '../components/LocationField';
 import type { LocationValue } from '../components/LocationField';
 import { upcomingKolkataDates } from '../utils/kolkataDate';
@@ -311,7 +310,6 @@ export function OfferRideScreen() {
             </svg>
           </button>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Offer a ride</h1>
-          <ThemeToggle />
         </div>
 
         {vehiclesLoading && (

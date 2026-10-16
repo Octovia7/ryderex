@@ -7,7 +7,6 @@ import type { Ride, RideBookingItem } from '../api/rides';
 import { listRatingsForBooking, submitRating as submitRatingRequest } from '../api/ratings';
 import type { Rating } from '../api/ratings';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 
 type RideStatus = Ride['status'];
 type RideAction = 'start' | 'complete' | 'cancel';
@@ -366,7 +365,6 @@ export function DriverRidesScreen() {
             </svg>
           </button>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>My rides</h1>
-          <ThemeToggle />
         </div>
 
         {loading && (

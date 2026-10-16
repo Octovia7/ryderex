@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
 import { roleHomePath, InvalidSessionError } from '../auth/roles';
 import { ApiError } from '../api/client';
-import { ThemeToggle } from '../components/ThemeToggle';
 import './LoginScreen.css';
 
 // Real backend defaults (src/config/env.ts) — not arbitrary UI numbers.
@@ -133,7 +132,6 @@ export function LoginScreen() {
       }}
     >
       <div style={{ width: '100%', maxWidth: 390, display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
-        <ThemeToggle />
       </div>
 
       <div
