@@ -5,13 +5,13 @@
  */
 
 :root {
-  --font-ui: 'Space Grotesk', sans-serif;
+  --font-ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --radius-control: 16px;
-  --radius-card: 24px;
+  --radius-control: 12px;
+  --radius-card: 16px;
   --radius-chip: 999px;
-  --radius-sheet: 28px;
+  --radius-sheet: 24px;
 
   --bg: #f3f6fb;
   --surface-1: #ffffff;

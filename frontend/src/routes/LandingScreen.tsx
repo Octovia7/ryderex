@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Leaf, Sprout, Star } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
 
@@ -9,6 +10,19 @@ const sectionWrap: CSSProperties = {
   padding: '0 20px',
   boxSizing: 'border-box',
 };
+
+const heroWrap: CSSProperties = {
+  width: '100%',
+  maxWidth: 1040,
+  margin: '0 auto',
+  padding: '0 20px',
+  boxSizing: 'border-box',
+};
+
+const ecoStats = [
+  { Icon: Sprout, label: 'Reduced emissions', value: '1.2 tons CO₂' },
+  { Icon: Star, label: 'Reputation score', value: '4.8 / 5' },
+];
 
 const card: CSSProperties = {
   borderRadius: 'var(--radius-card)',
@@ -116,116 +130,163 @@ export function LandingScreen() {
         </div>
       </header>
 
-      <main style={{ display: 'flex', flexDirection: 'column', gap: 56, padding: '40px 0 72px' }}>
-        {/* Hero */}
-        <section style={sectionWrap}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
-            <span
-              style={{
-                font: '600 12px var(--font-mono)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'var(--accent-2)',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-chip)',
-                padding: '6px 14px',
-              }}
-            >
-              Sustainable commuting
-            </span>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 'clamp(28px, 6vw, 40px)',
-                lineHeight: 1.1,
-                letterSpacing: '-0.03em',
-                fontWeight: 700,
-              }}
-            >
-              Rydex: sustainable commuting for the conscious commuter
-            </h1>
-            <p style={{ ...bodyText, maxWidth: 480 }}>
-              Travel the route you were taking anyway, with people going the same way. Fewer cars, a
-              cheaper trip, and a seat that would otherwise have gone empty.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 8 }}>
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                style={{
-                  height: 52,
-                  minWidth: 160,
-                  padding: '0 24px',
-                  borderRadius: 'var(--radius-control)',
-                  border: 0,
-                  background: 'var(--accent)',
-                  color: 'var(--accent-on)',
-                  font: '700 15px var(--font-ui)',
-                  boxShadow: 'var(--accent-glow)',
-                  cursor: 'pointer',
-                }}
-              >
-                Find a ride
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                style={{
-                  height: 52,
-                  minWidth: 160,
-                  padding: '0 24px',
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  color: 'var(--accent-2)',
-                  font: '600 15px var(--font-ui)',
-                  cursor: 'pointer',
-                }}
-              >
-                Offer a ride
-              </button>
-            </div>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              No password — we email you a code to sign in.
-            </span>
-          </div>
-        </section>
-
-        {/* Eco-leader status example */}
-        <section style={sectionWrap}>
-          <div style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <span style={{ font: '700 13px var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Eco-leader status
-              </span>
+      <main style={{ display: 'flex', flexDirection: 'column', gap: 56, padding: '32px 0 72px' }}>
+        {/* Hero: dark gradient banner with a floating eco-stat card, instead
+            of a plain centered text block. */}
+        <section style={heroWrap}>
+          <div
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              borderRadius: 'var(--radius-card)',
+              background: 'linear-gradient(135deg, #0d3b3e 0%, #0f766e 55%, #114b3a 100%)',
+              padding: 'clamp(28px, 5vw, 56px)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 32,
+              alignItems: 'flex-end',
+            }}
+          >
+            <div style={{ flex: '1 1 360px', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <span
                 style={{
-                  font: '600 11px var(--font-mono)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-subtle)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  width: 'fit-content',
+                  font: '600 12px var(--font-ui)',
+                  color: '#d2f5ea',
+                  background: 'rgba(255,255,255,.14)',
                   borderRadius: 'var(--radius-chip)',
-                  padding: '3px 10px',
+                  padding: '6px 14px',
+                  backdropFilter: 'blur(6px)',
                 }}
               >
-                Example
+                <Leaf size={14} aria-hidden /> Sustainable commuting
+              </span>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 'clamp(28px, 5vw, 44px)',
+                  lineHeight: 1.08,
+                  letterSpacing: '-0.03em',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                }}
+              >
+                Rydex: sustainable commuting for the conscious commuter
+              </h1>
+              <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: 'rgba(255,255,255,.82)' }}>
+                Travel the route you were taking anyway, with people going the same way. Fewer cars, a
+                cheaper trip, and a seat that would otherwise have gone empty.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  style={{
+                    height: 52,
+                    minWidth: 160,
+                    padding: '0 24px',
+                    borderRadius: 'var(--radius-control)',
+                    border: 0,
+                    background: '#ffffff',
+                    color: '#0d3b3e',
+                    font: '700 15px var(--font-ui)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Find a ride
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  style={{
+                    height: 52,
+                    minWidth: 160,
+                    padding: '0 24px',
+                    borderRadius: 'var(--radius-control)',
+                    border: '1px solid rgba(255,255,255,.35)',
+                    background: 'rgba(255,255,255,.12)',
+                    color: '#ffffff',
+                    font: '600 15px var(--font-ui)',
+                    backdropFilter: 'blur(6px)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Offer a ride
+                </button>
+              </div>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,.7)' }}>
+                No password — we email you a code to sign in.
               </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-              <div style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Reduced emissions</span>
-                <span style={{ font: '700 20px var(--font-ui)' }}>1.2 tons CO₂</span>
+
+            {/* Floating eco-leader example card */}
+            <div
+              style={{
+                flex: '0 1 272px',
+                maxWidth: 272,
+                borderRadius: 'var(--radius-card)',
+                background: 'rgba(255,255,255,.97)',
+                border: '1px solid rgba(255,255,255,.4)',
+                boxShadow: '0 20px 50px rgba(0,0,0,.25)',
+                padding: 18,
+                backdropFilter: 'blur(6px)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    font: '700 11px var(--font-ui)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: '#0f766e',
+                  }}
+                >
+                  <Leaf size={13} aria-hidden /> Eco-leader status
+                </span>
+                <span
+                  style={{
+                    font: '600 10px var(--font-ui)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: 'var(--text-muted)',
+                    background: 'var(--surface-3)',
+                    borderRadius: 'var(--radius-chip)',
+                    padding: '3px 9px',
+                  }}
+                >
+                  Example
+                </span>
               </div>
-              <div style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Reputation score</span>
-                <span style={{ font: '700 20px var(--font-ui)' }}>4.8 / 5</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+                {ecoStats.map(({ Icon, label, value }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Icon size={16} color="#0f766e" aria-hidden />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</span>
+                      <span style={{ font: '700 14px var(--font-ui)', color: 'var(--text)' }}>{value}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <p
+                style={{
+                  margin: '12px 0 0',
+                  paddingTop: 12,
+                  borderTop: '1px solid var(--border-subtle)',
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Every trip you share builds a rating both drivers and passengers can see.
+              </p>
             </div>
-            <p style={{ ...bodyText, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
-              Every trip you share builds a rating both drivers and passengers can see.
-            </p>
           </div>
         </section>
 
