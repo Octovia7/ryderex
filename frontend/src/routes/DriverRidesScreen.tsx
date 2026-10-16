@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -7,21 +8,24 @@ import type { Ride, RideBookingItem } from '../api/rides';
 import { listRatingsForBooking, submitRating as submitRatingRequest } from '../api/ratings';
 import type { Rating } from '../api/ratings';
 import { ApiError } from '../api/client';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Textarea } from '../components/ui/Input';
+import { cn } from '../lib/cn';
 
 type RideStatus = Ride['status'];
 type RideAction = 'start' | 'complete' | 'cancel';
 
 // Same two-tone chip language already established by TripsScreen/
-// RideDetailScreen (warning for "needs attention", success-border for
-// "good", muted for a settled/terminal state) — this design system has no
-// dedicated danger/red token.
-const STATUS_STYLES: Record<RideStatus, { label: string; border: string; color: string }> = {
-  PENDING_PAYMENT: { label: 'PENDING PAYMENT', border: 'var(--warning-border)', color: 'var(--warning)' },
-  OPEN: { label: 'OPEN', border: 'var(--success-border)', color: 'var(--accent)' },
-  FULL: { label: 'FULL', border: 'var(--success-border)', color: 'var(--accent)' },
-  STARTED: { label: 'STARTED', border: 'var(--border)', color: 'var(--accent-2)' },
-  COMPLETED: { label: 'COMPLETED', border: 'var(--success-border)', color: 'var(--accent)' },
-  CANCELLED: { label: 'CANCELLED', border: 'var(--border)', color: 'var(--text-muted)' },
+// RideDetailScreen (amber for "needs attention", emerald for "good", slate
+// for a settled/terminal state).
+const STATUS_STYLES: Record<RideStatus, { label: string; className: string }> = {
+  PENDING_PAYMENT: { label: 'PENDING PAYMENT', className: 'border-amber-300 text-amber-700' },
+  OPEN: { label: 'OPEN', className: 'border-emerald-300 text-accent-700' },
+  FULL: { label: 'FULL', className: 'border-emerald-300 text-accent-700' },
+  STARTED: { label: 'STARTED', className: 'border-violet-300 text-violet-700' },
+  COMPLETED: { label: 'COMPLETED', className: 'border-emerald-300 text-accent-700' },
+  CANCELLED: { label: 'CANCELLED', className: 'border-border-strong text-ink-faint' },
 };
 
 function formatDateTime(iso: string): string {
@@ -351,450 +355,307 @@ export function DriverRidesScreen() {
   }
 
   return (
-    <div>
-      <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            aria-label="Back to driver hub"
-            onClick={() => navigate('/driver')}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>My rides</h1>
-        </div>
+    <div className="mx-auto flex max-w-md flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Back to driver hub"
+          onClick={() => navigate('/driver')}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </button>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">My rides</h1>
+      </div>
 
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading your rides…</p>
-        )}
+      {loading && <p className="py-12 text-center text-sm text-ink-muted">Loading your rides…</p>}
 
-        {!loading && error && rides.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)' }}>
-            <p style={{ margin: 0, color: 'var(--warning)', fontSize: 14 }}>{error}</p>
-            <button
-              type="button"
-              onClick={() => loadRides()}
-              style={{ height: 40, borderRadius: 'var(--radius-control)', border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent-2)', font: '600 13px var(--font-ui)', cursor: 'pointer' }}
-            >
-              Try again
-            </button>
-          </div>
-        )}
+      {!loading && error && rides.length === 0 && (
+        <Card className="border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-700">{error}</p>
+          <Button variant="secondary" size="sm" className="mt-3 w-fit" onClick={() => loadRides()}>
+            Try again
+          </Button>
+        </Card>
+      )}
 
-        {!loading && !error && rides.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)', border: '1px solid var(--border-subtle)', textAlign: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>No rides posted yet</h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-              Once you offer a ride, it will show up here with its current status.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/driver/offer')}
-              style={{ height: 48, borderRadius: 14, border: 0, background: 'var(--accent)', color: 'var(--accent-on)', font: '600 14px var(--font-ui)', cursor: 'pointer' }}
-            >
-              Offer a ride
-            </button>
-          </div>
-        )}
+      {!loading && !error && rides.length === 0 && (
+        <Card className="flex flex-col gap-2.5 p-5 text-center">
+          <h2 className="text-base font-semibold text-ink">No rides posted yet</h2>
+          <p className="text-sm text-ink-muted">Once you offer a ride, it will show up here with its current status.</p>
+          <Button className="mt-1" onClick={() => navigate('/driver/offer')}>
+            Offer a ride
+          </Button>
+        </Card>
+      )}
 
-        {!loading && rides.length > 0 && (
-          <>
-            {error && (
-              <div style={{ padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)', color: 'var(--warning)', fontSize: 14 }}>
-                {error}
-              </div>
-            )}
+      {!loading && rides.length > 0 && (
+        <>
+          {error && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">{error}</div>
+          )}
 
-            {rides.map((ride) => {
-              const statusStyle = STATUS_STYLES[ride.status];
-              const actions = availableActions(ride);
-              const actingOnThisRide = activeAction?.rideId === ride.id;
-              const actionError = actionErrors[ride.id];
+          {rides.map((ride) => {
+            const statusStyle = STATUS_STYLES[ride.status];
+            const actions = availableActions(ride);
+            const actingOnThisRide = activeAction?.rideId === ride.id;
+            const actionError = actionErrors[ride.id];
 
-              return (
-                <div
-                  key={ride.id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    padding: 16,
-                    borderRadius: 22,
-                    background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <span style={{ font: '600 18px var(--font-mono)' }}>{formatDateTime(ride.departureTime)}</span>
-                    <span
-                      style={{
-                        borderRadius: 'var(--radius-chip)',
-                        border: `1px solid ${statusStyle.border}`,
-                        background: 'var(--surface-3)',
-                        color: statusStyle.color,
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 10,
-                        letterSpacing: '.08em',
-                        padding: '3px 9px',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {statusStyle.label}
-                    </span>
-                  </div>
+            return (
+              <Card key={ride.id} className="flex flex-col gap-2.5 p-4">
+                <div className="flex items-start justify-between">
+                  <span className="font-mono text-lg font-semibold text-ink">
+                    {formatDateTime(ride.departureTime)}
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full border bg-slate-50 px-2.5 py-0.5 font-mono text-[10px] tracking-wider',
+                      statusStyle.className,
+                    )}
+                  >
+                    {statusStyle.label}
+                  </span>
+                </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    <span>From {formatPoint(ride.origin)}</span>
-                    <span>To {formatPoint(ride.destination)}</span>
-                  </div>
+                <div className="flex flex-col gap-1 font-mono text-xs text-ink-muted">
+                  <span>From {formatPoint(ride.origin)}</span>
+                  <span>To {formatPoint(ride.destination)}</span>
+                </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-2)' }}>
-                    <span>{(ride.routeDistanceMeters / 1000).toFixed(1)} km · {formatDuration(ride.routeDurationSeconds)}</span>
-                    <span>{ride.availableSeats} / {ride.totalSeats} seats left</span>
-                  </div>
+                <div className="flex justify-between text-xs text-ink-muted">
+                  <span>
+                    {(ride.routeDistanceMeters / 1000).toFixed(1)} km · {formatDuration(ride.routeDurationSeconds)}
+                  </span>
+                  <span>{ride.availableSeats} / {ride.totalSeats} seats left</span>
+                </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
-                    <span>Fare per seat</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>
-                      ₹{ride.farePerSeat.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+                <div className="flex justify-between text-sm text-ink">
+                  <span>Fare per seat</span>
+                  <span className="font-mono">₹{ride.farePerSeat.toLocaleString('en-IN')}</span>
+                </div>
 
-                  {actions.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px dashed var(--border-subtle)', paddingTop: 10 }}>
-                      {actionError && (
-                        <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                          {actionError}
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {actions.map((action) => {
-                          const isThisActionRunning = actingOnThisRide && activeAction?.action === action;
-                          return (
-                            <button
-                              key={action}
-                              type="button"
-                              disabled={actingOnThisRide}
-                              onClick={() => void handleAction(ride, action)}
-                              style={{
-                                flex: 1,
-                                height: 44,
-                                borderRadius: 'var(--radius-control)',
-                                border: action === 'cancel' ? '1px solid var(--border)' : 0,
-                                background: actingOnThisRide
-                                  ? 'var(--surface-3)'
-                                  : action === 'cancel'
-                                    ? 'var(--surface-2)'
-                                    : 'var(--accent)',
-                                color: actingOnThisRide
-                                  ? 'var(--text-muted)'
-                                  : action === 'cancel'
-                                    ? 'var(--text-2)'
-                                    : 'var(--accent-on)',
-                                font: '700 13px var(--font-ui)',
-                                cursor: actingOnThisRide ? 'not-allowed' : 'pointer',
-                              }}
-                            >
-                              {isThisActionRunning ? ACTION_LOADING_LABEL[action] : ACTION_LABEL[action]}
-                            </button>
-                          );
-                        })}
-                      </div>
+                {actions.length > 0 && (
+                  <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-2.5">
+                    {actionError && <p role="alert" className="text-xs text-red-600">{actionError}</p>}
+                    <div className="flex gap-2">
+                      {actions.map((action) => {
+                        const isThisActionRunning = actingOnThisRide && activeAction?.action === action;
+                        return (
+                          <Button
+                            key={action}
+                            variant={action === 'cancel' ? 'secondary' : 'primary'}
+                            size="sm"
+                            className="flex-1"
+                            disabled={actingOnThisRide}
+                            loading={isThisActionRunning}
+                            onClick={() => void handleAction(ride, action)}
+                          >
+                            {isThisActionRunning ? ACTION_LOADING_LABEL[action] : ACTION_LABEL[action]}
+                          </Button>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {ride.status === 'COMPLETED' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px dashed var(--border-subtle)', paddingTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePassengers(ride.id)}
-                        style={{
-                          height: 40,
-                          borderRadius: 'var(--radius-control)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface-2)',
-                          color: 'var(--accent-2)',
-                          font: '600 13px var(--font-ui)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {passengersPanelOpenId === ride.id ? 'Hide passengers' : 'View passengers'}
-                      </button>
+                {ride.status === 'COMPLETED' && (
+                  <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-2.5">
+                    <Button variant="secondary" size="sm" className="w-fit" onClick={() => handleTogglePassengers(ride.id)}>
+                      {passengersPanelOpenId === ride.id ? 'Hide passengers' : 'View passengers'}
+                    </Button>
 
-                      {passengersPanelOpenId === ride.id && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {passengersByRide[ride.id] === undefined ? (
-                            // Nothing has ever loaded for this ride yet — either
-                            // still loading the first page, or that first attempt
-                            // failed. There is no list to preserve in this branch.
-                            passengersLoadingId === ride.id ? (
-                              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                                Loading passengers…
+                    {passengersPanelOpenId === ride.id && (
+                      <div className="flex flex-col gap-2.5">
+                        {passengersByRide[ride.id] === undefined ? (
+                          // Nothing has ever loaded for this ride yet — either
+                          // still loading the first page, or that first attempt
+                          // failed. There is no list to preserve in this branch.
+                          passengersLoadingId === ride.id ? (
+                            <p className="text-xs text-ink-muted">Loading passengers…</p>
+                          ) : passengersLoadErrors[ride.id] ? (
+                            <>
+                              <p role="alert" className="text-xs text-red-600">
+                                {passengersLoadErrors[ride.id].message}
                               </p>
-                            ) : passengersLoadErrors[ride.id] ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="w-fit"
+                                onClick={() => void loadPassengers(ride.id, passengersLoadErrors[ride.id]?.cursor)}
+                              >
+                                Retry
+                              </Button>
+                            </>
+                          ) : null
+                        ) : passengersByRide[ride.id].length === 0 ? (
+                          <p className="text-xs text-ink-muted">No one booked this ride.</p>
+                        ) : (
+                          <>
+                            {passengersByRide[ride.id].map((booking) => {
+                              const eligibleForRating = canRatePassenger(booking, ride);
+                              const ratingOpen = ratingPanelOpenId === booking.id;
+                              const bookingRatings = ratingsByBooking[booking.id];
+                              const myRating =
+                                bookingRatings?.find((r) => r.raterId === session.user?.id) ?? null;
+                              const ratingsLoading = ratingLoadingId === booking.id;
+                              const ratingLoadError = ratingLoadErrors[booking.id];
+                              const submittingRating = ratingSubmittingId === booking.id;
+                              const ratingSubmitError = ratingSubmitErrors[booking.id];
+
+                              return (
+                                <div
+                                  key={booking.id}
+                                  className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-slate-50 p-3"
+                                >
+                                  <div className="flex items-baseline justify-between">
+                                    <span className="text-sm font-semibold text-ink">{booking.passengerName}</span>
+                                    <span className="font-mono text-[10px] text-ink-muted">
+                                      {booking.seats} seat{booking.seats === 1 ? '' : 's'}
+                                    </span>
+                                  </div>
+                                  <span className="font-mono text-[10px] tracking-wider text-ink-muted">
+                                    {booking.status}
+                                  </span>
+
+                                  {eligibleForRating && (
+                                    <>
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="w-fit"
+                                        onClick={() => handleToggleRatingPanel(booking.id)}
+                                      >
+                                        {ratingOpen ? 'Hide rating' : 'Rate this passenger'}
+                                      </Button>
+
+                                      {ratingOpen && (
+                                        <div className="flex flex-col gap-2">
+                                          {ratingsLoading && (
+                                            <p className="text-xs text-ink-muted">Checking rating status…</p>
+                                          )}
+
+                                          {!ratingsLoading && ratingLoadError && (
+                                            <>
+                                              <p role="alert" className="text-xs text-red-600">{ratingLoadError}</p>
+                                              <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="w-fit"
+                                                onClick={() => void loadRatingsForBooking(booking.id)}
+                                              >
+                                                Retry
+                                              </Button>
+                                            </>
+                                          )}
+
+                                          {!ratingsLoading && !ratingLoadError && bookingRatings !== undefined && (
+                                            myRating ? (
+                                              <div className="flex flex-col gap-1">
+                                                <span className="text-sm font-semibold text-ink">
+                                                  You rated this passenger {myRating.score}/5
+                                                </span>
+                                                {myRating.comment && (
+                                                  <p className="text-xs text-ink-muted">“{myRating.comment}”</p>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <>
+                                                <div className="flex gap-1.5">
+                                                  {[1, 2, 3, 4, 5].map((score) => (
+                                                    <button
+                                                      key={score}
+                                                      type="button"
+                                                      aria-pressed={ratingFormScore === score}
+                                                      onClick={() => setRatingFormScore(score)}
+                                                      className={cn(
+                                                        'flex-1 rounded-lg border py-2 font-mono text-sm font-semibold transition-colors',
+                                                        ratingFormScore === score
+                                                          ? 'border-accent-700 bg-accent-50 text-ink'
+                                                          : 'border-border-strong bg-surface text-ink-muted',
+                                                      )}
+                                                    >
+                                                      {score}
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                                <Textarea
+                                                  placeholder="Add a comment (optional)"
+                                                  value={ratingFormComment}
+                                                  onChange={(event) => setRatingFormComment(event.target.value)}
+                                                  rows={2}
+                                                />
+                                                {ratingSubmitError && (
+                                                  <p role="alert" className="text-xs text-red-600">
+                                                    {ratingSubmitError}
+                                                  </p>
+                                                )}
+                                                <Button
+                                                  size="sm"
+                                                  disabled={ratingFormScore === null}
+                                                  loading={submittingRating}
+                                                  onClick={() => void handleSubmitRating(booking.id)}
+                                                >
+                                                  Submit rating
+                                                </Button>
+                                              </>
+                                            )
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {passengersLoadErrors[ride.id] ? (
+                              // A LATER page failed — the list above is the
+                              // same one already shown before the failure,
+                              // untouched; this replaces only the "load
+                              // more" button's own slot with an error +
+                              // retry that reuses the exact cursor that
+                              // failed (never the general, unrelated
+                              // initial-load retry path above).
                               <>
-                                <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
+                                <p role="alert" className="text-xs text-red-600">
                                   {passengersLoadErrors[ride.id].message}
                                 </p>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  className="w-fit"
+                                  loading={passengersLoadingMoreId === ride.id}
                                   onClick={() => void loadPassengers(ride.id, passengersLoadErrors[ride.id]?.cursor)}
-                                  style={{
-                                    height: 44,
-                                    borderRadius: 'var(--radius-control)',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface-2)',
-                                    color: 'var(--text)',
-                                    font: '600 12px var(--font-ui)',
-                                    cursor: 'pointer',
-                                  }}
                                 >
                                   Retry
-                                </button>
+                                </Button>
                               </>
-                            ) : null
-                          ) : passengersByRide[ride.id].length === 0 ? (
-                            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                              No one booked this ride.
-                            </p>
-                          ) : (
-                            <>
-                                {passengersByRide[ride.id].map((booking) => {
-                                  const eligibleForRating = canRatePassenger(booking, ride);
-                                  const ratingOpen = ratingPanelOpenId === booking.id;
-                                  const bookingRatings = ratingsByBooking[booking.id];
-                                  const myRating =
-                                    bookingRatings?.find((r) => r.raterId === session.user?.id) ?? null;
-                                  const ratingsLoading = ratingLoadingId === booking.id;
-                                  const ratingLoadError = ratingLoadErrors[booking.id];
-                                  const submittingRating = ratingSubmittingId === booking.id;
-                                  const ratingSubmitError = ratingSubmitErrors[booking.id];
-
-                                  return (
-                                    <div
-                                      key={booking.id}
-                                      style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 8,
-                                        padding: 12,
-                                        borderRadius: 14,
-                                        background: 'var(--surface-2)',
-                                        border: '1px solid var(--border-subtle)',
-                                      }}
-                                    >
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                        <span style={{ fontSize: 14, fontWeight: 600 }}>{booking.passengerName}</span>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-                                          {booking.seats} seat{booking.seats === 1 ? '' : 's'}
-                                        </span>
-                                      </div>
-                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.08em', color: 'var(--text-muted)' }}>
-                                        {booking.status}
-                                      </span>
-
-                                      {eligibleForRating && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleToggleRatingPanel(booking.id)}
-                                            style={{
-                                              height: 40,
-                                              borderRadius: 'var(--radius-control)',
-                                              border: '1px solid var(--border)',
-                                              background: 'var(--surface-3)',
-                                              color: 'var(--accent-2)',
-                                              font: '600 12px var(--font-ui)',
-                                              cursor: 'pointer',
-                                            }}
-                                          >
-                                            {ratingOpen ? 'Hide rating' : 'Rate this passenger'}
-                                          </button>
-
-                                          {ratingOpen && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                              {ratingsLoading && (
-                                                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                                                  Checking rating status…
-                                                </p>
-                                              )}
-
-                                              {!ratingsLoading && ratingLoadError && (
-                                                <>
-                                                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                                                    {ratingLoadError}
-                                                  </p>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => void loadRatingsForBooking(booking.id)}
-                                                    style={{
-                                                      height: 44,
-                                                      borderRadius: 'var(--radius-control)',
-                                                      border: '1px solid var(--border)',
-                                                      background: 'var(--surface-3)',
-                                                      color: 'var(--text)',
-                                                      font: '600 12px var(--font-ui)',
-                                                      cursor: 'pointer',
-                                                    }}
-                                                  >
-                                                    Retry
-                                                  </button>
-                                                </>
-                                              )}
-
-                                              {!ratingsLoading && !ratingLoadError && bookingRatings !== undefined && (
-                                                myRating ? (
-                                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                    <span style={{ font: '600 13px var(--font-ui)', color: 'var(--text)' }}>
-                                                      You rated this passenger {myRating.score}/5
-                                                    </span>
-                                                    {myRating.comment && (
-                                                      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                                                        “{myRating.comment}”
-                                                      </p>
-                                                    )}
-                                                  </div>
-                                                ) : (
-                                                  <>
-                                                    <div style={{ display: 'flex', gap: 6 }}>
-                                                      {[1, 2, 3, 4, 5].map((score) => (
-                                                        <button
-                                                          key={score}
-                                                          type="button"
-                                                          aria-pressed={ratingFormScore === score}
-                                                          onClick={() => setRatingFormScore(score)}
-                                                          style={{
-                                                            flex: 1,
-                                                            height: 40,
-                                                            borderRadius: 'var(--radius-control)',
-                                                            border: `1px solid ${ratingFormScore === score ? 'var(--accent)' : 'var(--border)'}`,
-                                                            background: ratingFormScore === score ? 'rgba(11,129,147,.12)' : 'var(--surface-3)',
-                                                            color: ratingFormScore === score ? 'var(--text)' : 'var(--text-2)',
-                                                            font: '600 15px var(--font-mono)',
-                                                            cursor: 'pointer',
-                                                          }}
-                                                        >
-                                                          {score}
-                                                        </button>
-                                                      ))}
-                                                    </div>
-                                                    <textarea
-                                                      placeholder="Add a comment (optional)"
-                                                      value={ratingFormComment}
-                                                      onChange={(event) => setRatingFormComment(event.target.value)}
-                                                      rows={2}
-                                                      style={{
-                                                        resize: 'vertical',
-                                                        borderRadius: 'var(--radius-control)',
-                                                        border: '1px solid var(--border)',
-                                                        background: 'var(--surface-3)',
-                                                        color: 'var(--text)',
-                                                        font: '400 13px var(--font-ui)',
-                                                        padding: 10,
-                                                      }}
-                                                    />
-                                                    {ratingSubmitError && (
-                                                      <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                                                        {ratingSubmitError}
-                                                      </p>
-                                                    )}
-                                                    <button
-                                                      type="button"
-                                                      disabled={ratingFormScore === null || submittingRating}
-                                                      onClick={() => void handleSubmitRating(booking.id)}
-                                                      style={{
-                                                        height: 40,
-                                                        borderRadius: 'var(--radius-control)',
-                                                        border: 0,
-                                                        background:
-                                                          ratingFormScore === null || submittingRating ? 'var(--surface-2)' : 'var(--accent)',
-                                                        color:
-                                                          ratingFormScore === null || submittingRating ? 'var(--text-muted)' : 'var(--accent-on)',
-                                                        font: '700 13px var(--font-ui)',
-                                                        cursor: ratingFormScore === null || submittingRating ? 'not-allowed' : 'pointer',
-                                                      }}
-                                                    >
-                                                      {submittingRating ? 'Submitting…' : 'Submit rating'}
-                                                    </button>
-                                                  </>
-                                                )
-                                              )}
-                                            </div>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-
-                                {passengersLoadErrors[ride.id] ? (
-                                  // A LATER page failed — the list above is the
-                                  // same one already shown before the failure,
-                                  // untouched; this replaces only the "load
-                                  // more" button's own slot with an error +
-                                  // retry that reuses the exact cursor that
-                                  // failed (never the general, unrelated
-                                  // initial-load retry path above).
-                                  <>
-                                    <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                                      {passengersLoadErrors[ride.id].message}
-                                    </p>
-                                    <button
-                                      type="button"
-                                      disabled={passengersLoadingMoreId === ride.id}
-                                      onClick={() =>
-                                        void loadPassengers(ride.id, passengersLoadErrors[ride.id]?.cursor)
-                                      }
-                                      style={{
-                                        height: 44,
-                                        borderRadius: 'var(--radius-control)',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface-2)',
-                                        color: 'var(--text)',
-                                        font: '600 12px var(--font-ui)',
-                                        cursor: passengersLoadingMoreId === ride.id ? 'default' : 'pointer',
-                                      }}
-                                    >
-                                      {passengersLoadingMoreId === ride.id ? 'Loading…' : 'Retry'}
-                                    </button>
-                                  </>
-                                ) : (
-                                  passengersNextCursorByRide[ride.id] && (
-                                    <button
-                                      type="button"
-                                      disabled={passengersLoadingMoreId === ride.id}
-                                      onClick={() =>
-                                        void loadPassengers(ride.id, passengersNextCursorByRide[ride.id] ?? undefined)
-                                      }
-                                      style={{
-                                        height: 44,
-                                        borderRadius: 'var(--radius-control)',
-                                        background: 'transparent',
-                                        border: '1px dashed var(--border)',
-                                        color: 'var(--text-2)',
-                                        font: '500 13px var(--font-ui)',
-                                        cursor: passengersLoadingMoreId === ride.id ? 'default' : 'pointer',
-                                      }}
-                                    >
-                                      {passengersLoadingMoreId === ride.id ? 'Loading…' : 'Load more passengers'}
-                                    </button>
-                                  )
-                                )}
-                              </>
+                            ) : (
+                              passengersNextCursorByRide[ride.id] && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-fit border border-dashed border-border-strong"
+                                  loading={passengersLoadingMoreId === ride.id}
+                                  onClick={() =>
+                                    void loadPassengers(ride.id, passengersNextCursorByRide[ride.id] ?? undefined)
+                                  }
+                                >
+                                  Load more passengers
+                                </Button>
+                              )
                             )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        )}
-      </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
