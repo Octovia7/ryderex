@@ -322,21 +322,10 @@ export function TripsScreen() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)', display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          padding: '20px 16px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--surface-1)',
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em' }}>My trips</h1>
-      </header>
+    <div className="mx-auto flex max-w-xl flex-col gap-4 pb-24">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">My trips</h1>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 100px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading && (
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading your trips…</p>
         )}

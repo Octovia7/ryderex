@@ -369,7 +369,7 @@ export function RideDetailScreen() {
   const { bookable, reason: bookabilityReason } = rideBookability(ride);
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
+    <div className="mx-auto max-w-xl">
       <div style={{ position: 'relative' }}>
         <RoutePreview height={220} />
         <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', justifyContent: 'space-between' }}>

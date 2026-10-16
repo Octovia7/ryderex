@@ -112,15 +112,16 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)', display: 'flex', flexDirection: 'column' }}>
+    <div className="mx-auto max-w-xl" style={{ display: 'flex', flexDirection: 'column' }}>
       <header
         style={{
-          padding: '20px 16px 16px',
+          padding: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
           background: 'var(--surface-1)',
+          borderRadius: 'var(--radius-card)',
         }}
       >
         <button

@@ -127,7 +127,7 @@ export function ResultsScreen() {
 
   if (!hasValidParams) {
     return (
-      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: 'var(--text)', fontFamily: 'var(--font-ui)', padding: 24, textAlign: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
         <p style={{ color: 'var(--text-muted)' }}>No search to show — start a new search.</p>
         <button
           type="button"
@@ -141,7 +141,7 @@ export function ResultsScreen() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)', display: 'flex', flexDirection: 'column' }}>
+    <div className="mx-auto max-w-xl" style={{ display: 'flex', flexDirection: 'column' }}>
       <header
         style={{
           padding: '16px 16px 12px',
@@ -150,6 +150,7 @@ export function ResultsScreen() {
           gap: 14,
           borderBottom: '1px solid var(--border-subtle)',
           background: 'var(--surface-1)',
+          borderRadius: 'var(--radius-card)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
