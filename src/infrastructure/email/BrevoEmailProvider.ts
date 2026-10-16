@@ -17,9 +17,9 @@ export class BrevoEmailProvider implements EmailProvider {
           'api-key': config.brevo.apiKey ?? '',
         },
         body: JSON.stringify({
-          sender: { email: config.brevo.senderEmail },
+          sender: { email: config.brevo.senderEmail, name: 'Ryderex' },
           to: [{ email }],
-          subject: 'Your SaathiRide login code',
+          subject: 'Your Ryderex login code',
           textContent: `Your login code is ${otp}. It expires in ${expiryMinutes} minutes.`,
         }),
       });
