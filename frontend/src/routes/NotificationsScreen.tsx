@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -5,6 +6,9 @@ import { withAuthRetry } from '../api/withAuthRetry';
 import { listNotifications, markNotificationRead } from '../api/notifications';
 import type { Notification } from '../api/notifications';
 import { ApiError } from '../api/client';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { cn } from '../lib/cn';
 
 function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-IN', {
@@ -112,55 +116,42 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-xl" style={{ display: 'flex', flexDirection: 'column' }}>
-      <header
-        style={{
-          padding: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--surface-1)',
-          borderRadius: 'var(--radius-card)',
-        }}
-      >
+    <div className="mx-auto flex max-w-xl flex-col gap-4">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           aria-label="Back"
           onClick={() => navigate(-1)}
-          style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 6l-6 6 6 6" />
-          </svg>
+          <ChevronLeft className="size-5" aria-hidden />
         </button>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Notifications</h1>
-      </header>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Notifications</h1>
+      </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 48px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading notifications…</p>
-        )}
+      <div className="flex flex-col gap-2.5">
+        {loading && <p className="py-12 text-center text-sm text-ink-muted">Loading notifications…</p>}
 
         {!loading && error && notifications.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)' }}>
-            <p role="alert" style={{ margin: 0, color: 'var(--warning)', fontSize: 14 }}>
+          <Card className="border-red-200 bg-red-50 p-4">
+            <p role="alert" className="text-sm text-red-700">
               {error.message}
             </p>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3 w-fit"
               onClick={() => void loadNotifications(error.cursor)}
-              style={{ height: 40, borderRadius: 'var(--radius-control)', border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent-2)', font: '600 13px var(--font-ui)', cursor: 'pointer' }}
             >
               Try again
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {!loading && !error && notifications.length === 0 && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 16px' }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>No notifications yet</p>
-            <p style={{ margin: '6px 0 0', fontSize: 13 }}>Updates about your rides and bookings will show up here.</p>
+          <div className="py-12 text-center text-ink-muted">
+            <p className="text-sm font-semibold text-ink">No notifications yet</p>
+            <p className="mt-1.5 text-xs">Updates about your rides and bookings will show up here.</p>
           </div>
         )}
 
@@ -172,45 +163,33 @@ export function NotificationsScreen() {
               const markError = markReadErrors[notification.id];
 
               return (
-                <div key={notification.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div key={notification.id} className="flex flex-col gap-1.5">
                   <button
                     type="button"
                     onClick={() => void handleActivate(notification)}
                     disabled={marking}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      padding: 16,
-                      borderRadius: 18,
-                      textAlign: 'left',
-                      cursor: unread ? 'pointer' : 'default',
-                      background: unread ? 'rgba(11,129,147,.06)' : 'var(--surface-1)',
-                      border: `1px solid ${unread ? 'var(--accent)' : 'var(--border-subtle)'}`,
-                      color: 'var(--text)',
-                      width: '100%',
-                    }}
+                    className={cn(
+                      'flex w-full flex-col gap-1.5 rounded-lg border p-4 text-left text-ink',
+                      unread ? 'cursor-pointer border-accent-600 bg-accent-50' : 'cursor-default border-border-subtle bg-surface',
+                    )}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <div className="flex items-start gap-2">
                       {unread && (
-                        <span
-                          aria-hidden="true"
-                          style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)', marginTop: 5, flexShrink: 0 }}
-                        />
+                        <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-accent-600" />
                       )}
-                      <span style={{ flex: 1, fontSize: 14, fontWeight: unread ? 700 : 500 }}>
+                      <span className={cn('flex-1 text-sm', unread ? 'font-bold' : 'font-medium')}>
                         {notification.title}
                       </span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      <span className="shrink-0 whitespace-nowrap text-xs text-ink-faint">
                         {formatDateTime(notification.createdAt)}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.4, color: 'var(--text-2)', paddingLeft: unread ? 16 : 0 }}>
+                    <p className={cn('text-xs leading-relaxed text-ink-muted', unread && 'pl-4')}>
                       {notification.body}
                     </p>
                   </button>
                   {markError && (
-                    <p role="alert" style={{ margin: 0, fontSize: 11, color: 'var(--warning)' }}>
+                    <p role="alert" className="text-[11px] text-red-600">
                       {markError}
                     </p>
                   )}
@@ -223,37 +202,29 @@ export function NotificationsScreen() {
               // already shown before the failure, untouched; this
               // replaces only the "load more" slot with an error + retry
               // that reuses the exact cursor that failed.
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
+              <div className="flex flex-col gap-2">
+                <p role="alert" className="text-xs text-red-600">
                   {error.message}
                 </p>
-                <button
-                  type="button"
-                  disabled={loadingMore}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={loadingMore}
                   onClick={() => void loadNotifications(error.cursor)}
-                  style={{
-                    height: 44,
-                    borderRadius: 'var(--radius-control)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-2)',
-                    color: 'var(--text)',
-                    font: '600 13px var(--font-ui)',
-                    cursor: loadingMore ? 'default' : 'pointer',
-                  }}
                 >
-                  {loadingMore ? 'Loading…' : 'Retry'}
-                </button>
+                  Retry
+                </Button>
               </div>
             ) : (
               nextCursor && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  loading={loadingMore}
+                  className="border border-dashed border-border-strong"
                   onClick={() => void loadNotifications(nextCursor)}
-                  disabled={loadingMore}
-                  style={{ height: 52, borderRadius: 16, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-2)', font: '500 14px var(--font-ui)', cursor: loadingMore ? 'default' : 'pointer' }}
                 >
-                  {loadingMore ? 'Loading…' : 'Load more notifications'}
-                </button>
+                  Load more notifications
+                </Button>
               )
             )}
           </>

@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -6,6 +7,9 @@ import { getMe, updateMe } from '../api/users';
 import type { UpdateProfileInput } from '../api/users';
 import type { User } from '../api/auth';
 import { ApiError } from '../api/client';
+import { Card, CardBody } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Field, TextInput } from '../components/ui/Input';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('en-IN', {
@@ -24,18 +28,6 @@ function isValidUrl(value: string): boolean {
     return false;
   }
 }
-
-const inputStyle = {
-  height: 52,
-  padding: '0 16px',
-  borderRadius: 'var(--radius-control)',
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  font: '500 15px var(--font-ui)',
-  outline: 'none',
-  width: '100%',
-} as const;
 
 export function AccountScreen() {
   const session = useSession();
@@ -239,195 +231,122 @@ export function AccountScreen() {
   }
 
   return (
-    <div>
-      <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={() => navigate(-1)}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Account</h1>
-        </div>
+    <div className="mx-auto flex max-w-md flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={() => navigate(-1)}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </button>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Account</h1>
+      </div>
 
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading your account…</p>
-        )}
+      {loading && <p className="py-12 text-center text-sm text-ink-muted">Loading your account…</p>}
 
-        {!loading && loadError && !profile && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)' }}>
-            <p style={{ margin: 0, color: 'var(--warning)', fontSize: 14 }}>{loadError}</p>
-            <button
-              type="button"
-              onClick={() => loadProfile()}
-              style={{ height: 40, borderRadius: 'var(--radius-control)', border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent-2)', font: '600 13px var(--font-ui)', cursor: 'pointer' }}
-            >
+      {!loading && loadError && !profile && (
+        <Card className="border-red-200 bg-red-50">
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-sm text-red-700">{loadError}</p>
+            <Button variant="secondary" size="sm" className="w-fit" onClick={() => loadProfile()}>
               Try again
-            </button>
-          </div>
-        )}
+            </Button>
+          </CardBody>
+        </Card>
+      )}
 
-        {!loading && profile && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  overflow: 'hidden',
-                  background: 'var(--surface-3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  font: '600 18px var(--font-ui)',
-                }}
-              >
-                {profile.profileImageUrl && !avatarFailed ? (
-                  <img
-                    src={profile.profileImageUrl}
-                    alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={() => setAvatarFailed(true)}
-                  />
-                ) : (
-                  profile.name.slice(0, 2).toUpperCase()
-                )}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 17, fontWeight: 600 }}>{profile.name}</span>
-                <span
-                  style={{
-                    alignSelf: 'flex-start',
-                    borderRadius: 'var(--radius-chip)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-3)',
-                    color: 'var(--accent)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    letterSpacing: '.08em',
-                    padding: '3px 9px',
-                  }}
-                >
-                  {profile.role}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
-              <span>Member since</span>
-              <span>{formatDate(profile.createdAt)}</span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-                padding: 20,
-                borderRadius: 22,
-                background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                EDIT PROFILE
-              </span>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Name</span>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Phone</span>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Email</span>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Profile image URL</span>
-                <input
-                  type="text"
-                  value={profileImageUrl}
-                  onChange={(e) => setProfileImageUrl(e.target.value)}
-                  placeholder="https://…"
-                  style={{
-                    ...inputStyle,
-                    border: `1px solid ${imageUrlValid ? 'var(--border)' : 'var(--warning-border)'}`,
-                  }}
+      {!loading && profile && (
+        <>
+          <div className="flex items-center gap-3.5">
+            <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-100 text-base font-semibold text-accent-800">
+              {profile.profileImageUrl && !avatarFailed ? (
+                <img
+                  src={profile.profileImageUrl}
+                  alt=""
+                  className="size-full object-cover"
+                  onError={() => setAvatarFailed(true)}
                 />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  There's no way to remove a photo once set — only replace it with a different URL.
-                </span>
-                {!imageUrlValid && (
-                  <span style={{ fontSize: 11, color: 'var(--warning)' }}>That doesn't look like a valid URL.</span>
-                )}
-              </label>
-
-              {saveError && (
-                <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                  {saveError}
-                </p>
+              ) : (
+                profile.name.slice(0, 2).toUpperCase()
               )}
-              {savedJustNow && !saveError && (
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--accent)' }}>Saved.</p>
-              )}
-
-              <button
-                type="button"
-                disabled={!canSave}
-                onClick={() => void handleSave()}
-                style={{
-                  height: 50,
-                  borderRadius: 'var(--radius-control)',
-                  border: 0,
-                  background: canSave ? 'var(--accent)' : 'var(--surface-3)',
-                  color: canSave ? 'var(--accent-on)' : 'var(--text-muted)',
-                  font: '700 14px var(--font-ui)',
-                  cursor: canSave ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {saving ? 'Saving…' : 'Save changes'}
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                padding: 20,
-                borderRadius: 22,
-                background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                REPUTATION
+            </span>
+            <div className="flex flex-col gap-1">
+              <span className="text-lg font-semibold text-ink">{profile.name}</span>
+              <span className="w-fit rounded-full border border-border-subtle bg-slate-50 px-2.5 py-0.5 font-mono text-[10px] tracking-wider text-accent-700">
+                {profile.role}
               </span>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-xs text-ink-muted">
+            <span>Member since</span>
+            <span>{formatDate(profile.createdAt)}</span>
+          </div>
+
+          <Card className="p-5">
+            <div className="flex flex-col gap-4">
+              <span className="font-mono text-[10px] tracking-wider text-ink-muted">EDIT PROFILE</span>
+
+              <Field label="Name">
+                {({ id }) => (
+                  <TextInput id={id} value={name} onChange={(e) => setName(e.target.value)} />
+                )}
+              </Field>
+
+              <Field label="Phone">
+                {({ id }) => (
+                  <TextInput id={id} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                )}
+              </Field>
+
+              <Field label="Email">
+                {({ id }) => (
+                  <TextInput id={id} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                )}
+              </Field>
+
+              <Field
+                label="Profile image URL"
+                hint="There's no way to remove a photo once set — only replace it with a different URL."
+                error={!imageUrlValid ? "That doesn't look like a valid URL." : undefined}
+              >
+                {({ id }) => (
+                  <TextInput
+                    id={id}
+                    value={profileImageUrl}
+                    onChange={(e) => setProfileImageUrl(e.target.value)}
+                    placeholder="https://…"
+                    invalid={!imageUrlValid}
+                  />
+                )}
+              </Field>
+
+              {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+              {savedJustNow && !saveError && <p className="text-xs text-accent-700">Saved.</p>}
+
+              <Button disabled={!canSave} loading={saving} onClick={() => void handleSave()}>
+                Save changes
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex flex-col gap-3">
+              <span className="font-mono text-[10px] tracking-wider text-ink-muted">REPUTATION</span>
+              <div className="flex justify-between text-sm text-ink">
                 <span>As a passenger</span>
-                <span style={{ color: 'var(--star)', fontFamily: 'var(--font-mono)' }}>
+                <span className="font-mono text-amber-600">
                   {profile.passengerRatingAverage == null
                     ? 'Not yet rated'
                     : `★ ${profile.passengerRatingAverage.toFixed(1)} (${profile.passengerRatingCount})`}
                 </span>
               </div>
               {profile.role === 'DRIVER' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--text-2)' }}>
+                <div className="flex justify-between text-sm text-ink">
                   <span>As a driver</span>
-                  <span style={{ color: 'var(--star)', fontFamily: 'var(--font-mono)' }}>
+                  <span className="font-mono text-amber-600">
                     {profile.driverRatingAverage == null
                       ? 'Not yet rated'
                       : `★ ${profile.driverRatingAverage.toFixed(1)} (${profile.driverRatingCount})`}
@@ -435,62 +354,37 @@ export function AccountScreen() {
                 </div>
               )}
             </div>
+          </Card>
 
-            {(profile.driverLicenseStatus !== null || profile.role === 'PASSENGER') && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  padding: 16,
-                  borderRadius: 18,
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border-subtle)',
-                  fontSize: 13,
-                }}
-              >
+          {(profile.driverLicenseStatus !== null || profile.role === 'PASSENGER') && (
+            <Card className="bg-slate-50 p-4 text-sm">
+              <div className="flex flex-col gap-2.5">
                 {profile.driverLicenseStatus && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-2)' }}>Driver licence</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text)' }}>
-                        {profile.driverLicenseStatus}
-                      </span>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">Driver licence</span>
+                      <span className="font-mono text-xs text-ink">{profile.driverLicenseStatus}</span>
                     </div>
                     {profile.driverLicenseStatus === 'REJECTED' && profile.driverLicenseRejectionReason && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                        {profile.driverLicenseRejectionReason}
-                      </span>
+                      <span className="text-xs text-ink-muted">{profile.driverLicenseRejectionReason}</span>
                     )}
                   </div>
                 )}
 
                 {showActivating && (
-                  <p role="status" style={{ margin: 0, fontSize: 12, color: 'var(--accent)' }}>
+                  <p role="status" className="text-xs text-accent-700">
                     Your licence is verified. Activating your driver access…
                   </p>
                 )}
 
                 {!showActivating && autoActivationTriedRef.current && driverAccessMismatched && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
+                  <div className="flex flex-col gap-2">
+                    <p role="alert" className="text-xs text-red-600">
                       {activationError ?? "Your driver access hasn't activated yet."}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void triggerActivation()}
-                      style={{
-                        height: 40,
-                        borderRadius: 'var(--radius-control)',
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface-3)',
-                        color: 'var(--accent-2)',
-                        font: '600 13px var(--font-ui)',
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <Button variant="secondary" size="sm" className="w-fit" onClick={() => void triggerActivation()}>
                       Try again
-                    </button>
+                    </Button>
                   </div>
                 )}
 
@@ -502,46 +396,27 @@ export function AccountScreen() {
                   (profile.driverLicenseStatus === null || profile.driverLicenseStatus === 'REJECTED') && (
                     <>
                       {!profile.driverLicenseStatus && (
-                        <span style={{ color: 'var(--text-2)' }}>Want to drive on SaathiRide?</span>
+                        <span className="text-ink-muted">Want to drive on Ryderex?</span>
                       )}
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-fit"
                         onClick={() => navigate('/account/driver-application')}
-                        style={{
-                          height: 44,
-                          borderRadius: 'var(--radius-control)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface-3)',
-                          color: 'var(--accent-2)',
-                          font: '600 13px var(--font-ui)',
-                          cursor: 'pointer',
-                        }}
                       >
                         {profile.driverLicenseStatus === 'REJECTED' ? 'Resubmit application' : 'Apply to become a driver'}
-                      </button>
+                      </Button>
                     </>
                   )}
               </div>
-            )}
+            </Card>
+          )}
 
-            <button
-              type="button"
-              onClick={() => void session.logout()}
-              style={{
-                height: 44,
-                borderRadius: 'var(--radius-control)',
-                border: '1px solid var(--border)',
-                background: 'var(--surface-2)',
-                color: 'var(--text)',
-                font: '600 13px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
-              Log out
-            </button>
-          </>
-        )}
-      </div>
+          <Button variant="secondary" onClick={() => void session.logout()}>
+            Log out
+          </Button>
+        </>
+      )}
     </div>
   );
 }

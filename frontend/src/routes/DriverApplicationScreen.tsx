@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -7,6 +8,9 @@ import type { User } from '../api/auth';
 import { submitDriverApplication } from '../api/driverApplication';
 import type { DriverApplicationResult } from '../api/driverApplication';
 import { ApiError } from '../api/client';
+import { Card, CardBody } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { FileUpload } from '../components/ui/FileUpload';
 
 // Mirrors userRepository.markDriverApplicationPending's own WHERE clause
 // (driverLicenseStatus null or REJECTED) plus the role check this screen's
@@ -42,10 +46,6 @@ function ineligibilityMessage(profile: User): string {
 // obviously-doomed upload and gives an earlier, clearer message.
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-
-function formatFileSize(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function DriverApplicationScreen() {
   const session = useSession();
@@ -132,172 +132,74 @@ export function DriverApplicationScreen() {
   }
 
   return (
-    <div>
-      <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            aria-label="Back to account"
-            onClick={() => navigate('/account')}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Apply to drive</h1>
-        </div>
+    <div className="mx-auto flex max-w-md flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Back to account"
+          onClick={() => navigate('/account')}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </button>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Apply to drive</h1>
+      </div>
 
-        {result ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: 20,
-              borderRadius: 22,
-              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-              border: '1px solid var(--success-border)',
-            }}
-          >
-            <span style={{ font: '700 16px var(--font-ui)' }}>Application submitted</span>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-              Status: <strong style={{ color: 'var(--text)' }}>{result.status}</strong>. An admin will review your
-              licence document; you'll see the outcome on your account page once it's decided.
+      {result ? (
+        <Card className="border-emerald-200 p-5">
+          <div className="flex flex-col gap-2.5">
+            <span className="text-base font-bold text-ink">Application submitted</span>
+            <p className="text-sm text-ink-muted">
+              Status: <strong className="text-ink">{result.status}</strong>. An admin will review your licence
+              document; you'll see the outcome on your account page once it's decided.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate('/account')}
-              style={{
-                height: 48,
-                borderRadius: 'var(--radius-control)',
-                border: 0,
-                background: 'var(--accent)',
-                color: 'var(--accent-on)',
-                font: '700 14px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
-              Back to account
-            </button>
+            <Button onClick={() => navigate('/account')}>Back to account</Button>
           </div>
-        ) : profileLoading ? (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading…</p>
-        ) : profileLoadError ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)' }}>
-            <p style={{ margin: 0, color: 'var(--warning)', fontSize: 14 }}>{profileLoadError}</p>
-            <button
-              type="button"
-              onClick={() => loadProfile()}
-              style={{ height: 40, borderRadius: 'var(--radius-control)', border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent-2)', font: '600 13px var(--font-ui)', cursor: 'pointer' }}
-            >
+        </Card>
+      ) : profileLoading ? (
+        <p className="py-12 text-center text-sm text-ink-muted">Loading…</p>
+      ) : profileLoadError ? (
+        <Card className="border-red-200 bg-red-50">
+          <CardBody className="flex flex-col gap-3">
+            <p className="text-sm text-red-700">{profileLoadError}</p>
+            <Button variant="secondary" size="sm" className="w-fit" onClick={() => loadProfile()}>
               Try again
-            </button>
-          </div>
-        ) : profile && isEligible(profile) ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 14,
-              padding: 20,
-              borderRadius: 22,
-              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+            </Button>
+          </CardBody>
+        </Card>
+      ) : profile && isEligible(profile) ? (
+        <Card className="p-5">
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink-muted">
               Upload a photo or scan of your driving licence. Accepted: JPEG, PNG, or PDF, up to 5 MB.
             </p>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Licence document</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
-                style={{
-                  padding: 10,
-                  borderRadius: 'var(--radius-control)',
-                  background: 'var(--surface-2)',
-                  border: `1px solid ${file && (!fileTypeValid || !fileSizeValid) ? 'var(--warning-border)' : 'var(--border)'}`,
-                  color: 'var(--text)',
-                  font: '400 13px var(--font-ui)',
-                }}
-              />
-              {file && (
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {file.name} · {formatFileSize(file.size)}
-                </span>
-              )}
-              {file && !fileTypeValid && (
-                <span style={{ fontSize: 11, color: 'var(--warning)' }}>
-                  Only JPEG, PNG, or PDF files are accepted.
-                </span>
-              )}
-              {file && fileTypeValid && !fileSizeValid && (
-                <span style={{ fontSize: 11, color: 'var(--warning)' }}>
-                  That file is larger than 5 MB.
-                </span>
-              )}
-            </label>
+            <FileUpload
+              label="Licence document"
+              value={file}
+              onChange={handleFileChange}
+              disabled={submitting}
+            />
 
-            {submitError && (
-              <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                {submitError}
-              </p>
-            )}
+            {submitError && <p className="text-xs text-red-600">{submitError}</p>}
 
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() => void handleSubmit()}
-              style={{
-                height: 50,
-                borderRadius: 'var(--radius-control)',
-                border: 0,
-                background: canSubmit ? 'var(--accent)' : 'var(--surface-3)',
-                color: canSubmit ? 'var(--accent-on)' : 'var(--text-muted)',
-                font: '700 14px var(--font-ui)',
-                cursor: canSubmit ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {submitting ? 'Submitting…' : 'Submit application'}
-            </button>
+            <Button disabled={!canSubmit} loading={submitting} onClick={() => void handleSubmit()}>
+              Submit application
+            </Button>
           </div>
-        ) : (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 14,
-              padding: 20,
-              borderRadius: 22,
-              background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-2)' }}>
+        </Card>
+      ) : (
+        <Card className="p-5">
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink-muted">
               {profile ? ineligibilityMessage(profile) : "This isn't available right now."}
             </p>
-            <button
-              type="button"
-              onClick={() => navigate('/account')}
-              style={{
-                height: 48,
-                borderRadius: 'var(--radius-control)',
-                border: '1px solid var(--border)',
-                background: 'var(--surface-2)',
-                color: 'var(--accent-2)',
-                font: '600 14px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
+            <Button variant="secondary" onClick={() => navigate('/account')}>
               Back to account
-            </button>
+            </Button>
           </div>
-        )}
-      </div>
+        </Card>
+      )}
     </div>
   );
 }
