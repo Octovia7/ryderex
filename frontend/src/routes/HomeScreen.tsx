@@ -1,194 +1,57 @@
-import { Bell, Car, LogOut, MapPinned, Search, UserRound } from 'lucide-react';
+import { Car, MapPinned, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
 import { ModeSwitcher } from '../components/ModeSwitcher';
 import { BottomNav } from '../components/BottomNav';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 // Landing page for both PASSENGER and DRIVER (see roleHomePath) — a driver
 // is never forced into a driver-only dashboard, so "Offer a ride" appears
-// alongside "Find a ride" here instead of replacing it.
+// alongside "Find a ride" here instead of replacing it. Identity/account
+// access lives in AppShell's header now, not duplicated here.
 export function HomeScreen() {
-  const { user, logout } = useSession();
+  const { user } = useSession();
   const navigate = useNavigate();
   const isDriver = user?.role === 'DRIVER';
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 20,
-        // Bottom padding leaves clearance for the fixed BottomNav below,
-        // same 100px convention SearchScreen/TripsScreen already use.
-        padding: '48px 16px 100px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 440, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-          {user ? `Signed in as ${user.name} (${user.role})` : ''}
-        </span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            aria-label="Notifications"
-            onClick={() => navigate('/notifications')}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              color: 'var(--text)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <Bell size={18} aria-hidden />
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto flex max-w-md flex-col gap-5 pb-24">
+      {isDriver && <ModeSwitcher active="passenger" />}
 
-      {isDriver && (
-        <div style={{ width: '100%', maxWidth: 440 }}>
-          <ModeSwitcher active="passenger" />
-        </div>
-      )}
-
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          borderRadius: 'var(--radius-card)',
-          background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-          border: '1px solid var(--border-subtle)',
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              flexShrink: 0,
-              background: 'rgba(11,129,147,.1)',
-              color: 'var(--accent)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+      <Card className="p-6">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700">
             <MapPinned size={20} aria-hidden />
           </span>
-          <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.1, letterSpacing: '-0.03em', fontWeight: 600 }}>
-            Where to?
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Where to?</h1>
         </div>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+        <p className="mt-3 text-sm text-ink-muted">
           {isDriver
             ? 'Find a seat on someone else’s ride, or offer one of your own.'
             : 'Search for a ride and book a seat.'}
         </p>
-      </div>
+      </Card>
 
-      <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button
-          type="button"
-          onClick={() => navigate('/search')}
-          style={{
-            height: 58,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            borderRadius: 'var(--radius-control)',
-            border: 0,
-            background: 'var(--accent)',
-            color: 'var(--accent-on)',
-            font: '700 17px var(--font-ui)',
-            boxShadow: 'var(--accent-glow)',
-            cursor: 'pointer',
-          }}
-        >
+      <div className="flex flex-col gap-3">
+        <Button size="lg" className="h-14 text-base" onClick={() => navigate('/search')}>
           <Search size={19} aria-hidden />
           Find a ride
-        </button>
+        </Button>
 
         {isDriver && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="lg"
+            className="h-14 border-violet-200 bg-violet-50 text-base text-violet-700 hover:bg-violet-100"
             onClick={() => navigate('/driver')}
-            style={{
-              height: 58,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              borderRadius: 'var(--radius-control)',
-              border: '1px solid rgba(107,87,214,.25)',
-              background: 'rgba(107,87,214,.08)',
-              color: 'var(--accent-2)',
-              font: '600 15px var(--font-ui)',
-              cursor: 'pointer',
-            }}
           >
             <Car size={19} aria-hidden />
             Offer a ride
-          </button>
+          </Button>
         )}
       </div>
 
-      {user && (
-        <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <button
-            type="button"
-            onClick={() => navigate('/account')}
-            style={{
-              height: 44,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              borderRadius: 'var(--radius-control)',
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              color: 'var(--accent-2)',
-              font: '600 13px var(--font-ui)',
-              cursor: 'pointer',
-            }}
-          >
-            <UserRound size={16} aria-hidden />
-            My account
-          </button>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            style={{
-              height: 44,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              borderRadius: 'var(--radius-control)',
-              border: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              color: 'var(--text)',
-              font: '600 13px var(--font-ui)',
-              cursor: 'pointer',
-            }}
-          >
-            <LogOut size={16} aria-hidden />
-            Log out
-          </button>
-        </div>
-      )}
       <BottomNav />
     </div>
   );

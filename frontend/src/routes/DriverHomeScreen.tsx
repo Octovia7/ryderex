@@ -1,155 +1,45 @@
 import { useNavigate } from 'react-router-dom';
-import { useSession } from '../auth/session';
 import { ModeSwitcher } from '../components/ModeSwitcher';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 // Driver-only hub (RequireRole restricts this to DRIVER) — links into
 // OfferRideScreen and DriverRidesScreen below. ModeSwitcher always leaves a
-// way back to the passenger side.
+// way back to the passenger side. Identity/account access lives in
+// AppShell's header now, not duplicated here.
 export function DriverHomeScreen() {
-  const { user, logout } = useSession();
   const navigate = useNavigate();
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 20,
-        padding: '48px 16px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 440, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-          {user ? `Signed in as ${user.name} (${user.role})` : ''}
-        </span>
-      </div>
+    <div className="mx-auto flex max-w-md flex-col gap-5">
+      <ModeSwitcher active="driver" />
 
-      <div style={{ width: '100%', maxWidth: 440 }}>
-        <ModeSwitcher active="driver" />
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          borderRadius: 'var(--radius-card)',
-          background: 'var(--surface-1)', boxShadow: 'var(--card-shadow)',
-          border: '1px solid var(--border-subtle)',
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            letterSpacing: '.14em',
-            textTransform: 'uppercase',
-            color: 'var(--accent)',
-          }}
-        >
+      <Card className="p-6">
+        <span className="text-xs font-semibold uppercase tracking-wider text-accent-700">
           Driver
         </span>
-        <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.1, letterSpacing: '-0.03em', fontWeight: 600 }}>
-          Offer a ride
-        </h1>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">Offer a ride</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           Post a trip you're already taking and let passengers book seats on it, then start,
           complete, or cancel it from My rides. Switch to passenger mode above to search and book
           instead.
         </p>
-      </div>
+      </Card>
 
-      <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button
-          type="button"
-          onClick={() => navigate('/driver/offer')}
-          style={{
-            height: 58,
-            borderRadius: 'var(--radius-control)',
-            border: 0,
-            background: 'var(--accent)',
-            color: 'var(--accent-on)',
-            font: '700 17px var(--font-ui)',
-            boxShadow: 'var(--accent-glow)',
-            cursor: 'pointer',
-          }}
-        >
+      <div className="flex flex-col gap-3">
+        <Button size="lg" className="h-14 text-base" onClick={() => navigate('/driver/offer')}>
           Offer a ride
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/driver/rides')}
-          style={{
-            height: 48,
-            borderRadius: 'var(--radius-control)',
-            border: '1px solid var(--border)',
-            background: 'var(--surface-2)',
-            color: 'var(--accent-2)',
-            font: '600 14px var(--font-ui)',
-            cursor: 'pointer',
-          }}
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => navigate('/driver/rides')}>
           My rides
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/driver/vehicle')}
-          style={{
-            height: 48,
-            borderRadius: 'var(--radius-control)',
-            border: '1px solid var(--border)',
-            background: 'var(--surface-2)',
-            color: 'var(--accent-2)',
-            font: '600 14px var(--font-ui)',
-            cursor: 'pointer',
-          }}
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => navigate('/driver/vehicle')}>
           My vehicle
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/app')}
-          style={{
-            height: 48,
-            borderRadius: 'var(--radius-control)',
-            border: '1px solid var(--border)',
-            background: 'var(--surface-2)',
-            color: 'var(--accent-2)',
-            font: '600 14px var(--font-ui)',
-            cursor: 'pointer',
-          }}
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => navigate('/app')}>
           Find a ride instead
-        </button>
+        </Button>
       </div>
-
-      {user && (
-        <button
-          type="button"
-          onClick={() => void logout()}
-          style={{
-            width: '100%',
-            maxWidth: 440,
-            height: 44,
-            borderRadius: 'var(--radius-control)',
-            border: '1px solid var(--border)',
-            background: 'var(--surface-2)',
-            color: 'var(--text)',
-            font: '600 13px var(--font-ui)',
-            cursor: 'pointer',
-          }}
-        >
-          Log out
-        </button>
-      )}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSession } from '../auth/session';
 import { RoutePreview } from '../components/RoutePreview';
 import { LocationField } from '../components/LocationField';
 import type { LocationValue } from '../components/LocationField';
@@ -16,7 +15,6 @@ const DATE_OPTIONS = upcomingKolkataDates(4);
 const SEARCH_RADIUS_LABEL = '10 km';
 
 export function SearchScreen() {
-  const { user } = useSession();
   const navigate = useNavigate();
 
   const [pickup, setPickup] = useState<LocationValue>(EMPTY_LOCATION);
@@ -50,57 +48,8 @@ export function SearchScreen() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
-      <div style={{ maxWidth: 440, margin: '0 auto', padding: '20px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 11,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--accent)',
-                boxShadow: '0 0 18px rgba(11,129,147,.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 17 C 8 17, 8 7, 12 7 S 16 17, 20 17" />
-                <circle cx="4" cy="17" r="2" />
-                <circle cx="20" cy="17" r="2" />
-              </svg>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>SaathiRide</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.12em' }}>
-                CARPOOL · INDIA
-              </span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => navigate('/account')}
-              aria-label="Account"
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: '50%',
-                border: 0,
-                background: 'var(--surface-3)',
-                color: 'var(--text)',
-                font: '600 14px var(--font-ui)',
-                cursor: 'pointer',
-              }}
-            >
-              {user ? user.name.slice(0, 2).toUpperCase() : '??'}
-            </button>
-          </div>
-        </div>
-
+    <div style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
+      <div style={{ maxWidth: 440, margin: '0 auto', padding: '0 0 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.1, fontWeight: 600, letterSpacing: '-0.03em' }}>
             Where are you
