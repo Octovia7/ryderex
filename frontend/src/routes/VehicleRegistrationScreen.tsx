@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../auth/session';
@@ -11,24 +12,17 @@ import {
 } from '../api/vehicles';
 import type { Vehicle, VehicleType, VehicleDocumentType } from '../api/vehicles';
 import { ApiError } from '../api/client';
-
-// Mirrors src/middleware/uploadDocument.ts's own magic-byte allow-list and
-// 5 MB multer limit exactly — the same UX-only check already used for the
-// driver-licence upload (DriverApplicationScreen.tsx). The backend's real
-// check is on the file's actual bytes; this just avoids an obviously-doomed
-// upload and gives an earlier, clearer message.
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { FileUpload } from '../components/ui/FileUpload';
+import { Field, TextInput } from '../components/ui/Input';
+import { cn } from '../lib/cn';
 
 const DOCUMENT_LABELS: Record<VehicleDocumentType, string> = {
   RC: 'Registration certificate (RC)',
   INSURANCE: 'Insurance',
   POLLUTION: 'Pollution certificate',
 };
-
-function formatFileSize(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 interface DocumentUploadRowProps {
   vehicleId: string;
@@ -50,9 +44,7 @@ function DocumentUploadRow({ vehicleId, documentType, uploadedCount, onUploaded 
   // before React re-renders with the button disabled.
   const uploadInFlightRef = useRef(false);
 
-  const fileTypeValid = !file || ACCEPTED_TYPES.includes(file.type);
-  const fileSizeValid = !file || file.size <= MAX_FILE_SIZE_BYTES;
-  const canUpload = file !== null && fileTypeValid && fileSizeValid && !uploading;
+  const canUpload = file !== null && !uploading;
 
   async function handleUpload() {
     if (!file || !canUpload || uploadInFlightRef.current) return;
@@ -77,79 +69,24 @@ function DocumentUploadRow({ vehicleId, documentType, uploadedCount, onUploaded 
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{DOCUMENT_LABELS[documentType]}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+    <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-slate-50 p-3.5">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-semibold text-ink">{DOCUMENT_LABELS[documentType]}</span>
+        <span className="text-xs text-ink-muted">
           {uploadedCount > 0 ? `${uploadedCount} uploaded` : 'None uploaded yet'}
         </span>
       </div>
 
-      <input
-        type="file"
-        aria-label={DOCUMENT_LABELS[documentType]}
-        accept="image/jpeg,image/png,application/pdf"
-        onChange={(event) => {
-          setFile(event.target.files?.[0] ?? null);
-          setUploadError(null);
-        }}
-        style={{
-          padding: 8,
-          borderRadius: 'var(--radius-control)',
-          background: 'var(--surface-1)',
-          border: `1px solid ${file && (!fileTypeValid || !fileSizeValid) ? 'var(--warning-border)' : 'var(--border)'}`,
-          color: 'var(--text)',
-          font: '400 12px var(--font-ui)',
-        }}
-      />
-      {file && (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {file.name} · {formatFileSize(file.size)}
-        </span>
-      )}
-      {file && !fileTypeValid && (
-        <span style={{ fontSize: 11, color: 'var(--warning)' }}>Only JPEG, PNG, or PDF files are accepted.</span>
-      )}
-      {file && fileTypeValid && !fileSizeValid && (
-        <span style={{ fontSize: 11, color: 'var(--warning)' }}>That file is larger than 5 MB.</span>
-      )}
-      {uploadError && (
-        <p role="alert" style={{ margin: 0, fontSize: 11, color: 'var(--warning)' }}>
-          {uploadError}
-        </p>
-      )}
+      <FileUpload label="" value={file} onChange={setFile} disabled={uploading} />
 
-      <button
-        type="button"
-        disabled={!canUpload}
-        onClick={() => void handleUpload()}
-        style={{
-          height: 40,
-          borderRadius: 'var(--radius-control)',
-          border: 0,
-          background: canUpload ? 'var(--accent)' : 'var(--surface-3)',
-          color: canUpload ? 'var(--accent-on)' : 'var(--text-muted)',
-          font: '700 12px var(--font-ui)',
-          cursor: canUpload ? 'pointer' : 'not-allowed',
-        }}
-      >
-        {uploading ? 'Uploading…' : 'Upload'}
-      </button>
+      {uploadError && <p role="alert" className="text-xs text-red-600">{uploadError}</p>}
+
+      <Button size="sm" disabled={!canUpload} loading={uploading} onClick={() => void handleUpload()}>
+        Upload
+      </Button>
     </div>
   );
 }
-
-const inputStyle = {
-  height: 50,
-  padding: '0 14px',
-  borderRadius: 'var(--radius-control)',
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  font: '500 15px var(--font-ui)',
-  outline: 'none',
-  width: '100%',
-} as const;
 
 export function VehicleRegistrationScreen() {
   const session = useSession();
@@ -265,104 +202,85 @@ export function VehicleRegistrationScreen() {
   }
 
   return (
-    <div>
-      <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            aria-label="Back to driver hub"
-            onClick={() => navigate('/driver')}
-            style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>My vehicle</h1>
-        </div>
+    <div className="mx-auto flex max-w-md flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Back to driver hub"
+          onClick={() => navigate('/driver')}
+          className="flex size-10 items-center justify-center rounded-lg border border-border-strong bg-surface text-ink-muted transition-colors hover:bg-slate-50"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+        </button>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">My vehicle</h1>
+      </div>
 
-        {loading && vehicles === null && (
-          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0' }}>Loading…</p>
-        )}
+      {loading && vehicles === null && <p className="py-12 text-center text-sm text-ink-muted">Loading…</p>}
 
-        {!loading && loadError && vehicles === null && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 16, background: 'var(--surface-2)', border: '1px solid var(--warning-border)' }}>
-            <p style={{ margin: 0, color: 'var(--warning)', fontSize: 14 }}>{loadError}</p>
-            <button
-              type="button"
-              onClick={() => loadVehicles()}
-              style={{ height: 40, borderRadius: 'var(--radius-control)', border: '1px solid var(--border)', background: 'var(--surface-3)', color: 'var(--accent-2)', font: '600 13px var(--font-ui)', cursor: 'pointer' }}
-            >
-              Try again
-            </button>
-          </div>
-        )}
+      {!loading && loadError && vehicles === null && (
+        <Card className="border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-700">{loadError}</p>
+          <Button variant="secondary" size="sm" className="mt-3 w-fit" onClick={() => loadVehicles()}>
+            Try again
+          </Button>
+        </Card>
+      )}
 
-        {vehicles !== null && (
-          <>
-            {loadError && (
-              <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                Couldn't refresh — showing the last known state. {loadError}
-              </p>
-            )}
+      {vehicles !== null && (
+        <>
+          {loadError && (
+            <p role="alert" className="text-xs text-red-600">
+              Couldn't refresh — showing the last known state. {loadError}
+            </p>
+          )}
 
-            {hasVehicles &&
-              vehicles!.map((vehicle) => (
-                <div key={vehicle.id} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--card-shadow)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ font: '700 18px var(--font-mono)' }}>{vehicle.registrationNumber}</span>
+          {hasVehicles &&
+            vehicles.map((vehicle) => (
+              <div key={vehicle.id} className="flex flex-col gap-4">
+                <Card className="flex flex-col gap-2.5 p-5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-lg font-bold text-ink">{vehicle.registrationNumber}</span>
                     <span
-                      style={{
-                        borderRadius: 'var(--radius-chip)',
-                        border: `1px solid ${vehicle.verificationStatus === 'VERIFIED' ? 'var(--success-border)' : 'var(--warning-border)'}`,
-                        background: 'var(--surface-3)',
-                        color: vehicle.verificationStatus === 'VERIFIED' ? 'var(--accent)' : 'var(--warning)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 10,
-                        letterSpacing: '.08em',
-                        padding: '3px 9px',
-                      }}
+                      className={cn(
+                        'rounded-full border bg-slate-50 px-2.5 py-0.5 font-mono text-[10px] tracking-wider',
+                        vehicle.verificationStatus === 'VERIFIED'
+                          ? 'border-emerald-300 text-accent-700'
+                          : 'border-amber-300 text-amber-700',
+                      )}
                     >
                       {vehicle.verificationStatus}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-2)' }}>
-                    <span>{vehicle.vehicleType} · {vehicle.seatCapacity} seats{vehicle.isAc ? ' · AC' : ''}</span>
-                  </div>
-                  {vehicle.model && (
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{vehicle.model}</span>
-                  )}
+                  <span className="text-sm text-ink">
+                    {vehicle.vehicleType} · {vehicle.seatCapacity} seats{vehicle.isAc ? ' · AC' : ''}
+                  </span>
+                  {vehicle.model && <span className="text-xs text-ink-muted">{vehicle.model}</span>}
 
                   {vehicle.verificationStatus === 'PENDING' && (
-                    <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                    <p className="text-xs leading-relaxed text-ink-muted">
                       Awaiting admin review — you can still upload documents below while this is pending.
                     </p>
                   )}
                   {vehicle.verificationStatus === 'VERIFIED' && (
-                    <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                    <p className="text-xs leading-relaxed text-ink-muted">
                       Verified — eligible to be used when you offer a ride.
                     </p>
                   )}
                   {vehicle.verificationStatus === 'REJECTED' && (
                     <>
                       {vehicle.rejectionReason && (
-                        <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--warning)' }}>
-                          {vehicle.rejectionReason}
-                        </p>
+                        <p className="text-xs leading-relaxed text-red-600">{vehicle.rejectionReason}</p>
                       )}
-                      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                      <p className="text-xs leading-relaxed text-ink-muted">
                         There's currently no way to resubmit this vehicle for review. Uploading another
                         document here does not change its verification status.
                       </p>
                     </>
                   )}
-                </div>
+                </Card>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--text-muted)' }}>
-                    DOCUMENTS
-                  </span>
+                <div className="flex flex-col gap-2.5">
+                  <span className="font-mono text-[10px] tracking-wider text-ink-muted">DOCUMENTS</span>
                   {VEHICLE_DOCUMENT_TYPES.map((documentType) => (
                     <DocumentUploadRow
                       key={documentType}
@@ -373,133 +291,98 @@ export function VehicleRegistrationScreen() {
                     />
                   ))}
                 </div>
-                </div>
-              ))}
+              </div>
+            ))}
 
-            {hasVehicles && (
-              <button
-                type="button"
-                onClick={() => setRegisterFormOpen((open) => !open)}
-                style={{
-                  height: 48,
-                  borderRadius: 'var(--radius-control)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  color: 'var(--accent-2)',
-                  font: '600 14px var(--font-ui)',
-                  cursor: 'pointer',
-                }}
-              >
-                {registerFormOpen ? 'Hide' : 'Register another vehicle'}
-              </button>
-            )}
+          {hasVehicles && (
+            <Button variant="secondary" onClick={() => setRegisterFormOpen((open) => !open)}>
+              {registerFormOpen ? 'Hide' : 'Register another vehicle'}
+            </Button>
+          )}
 
-            {showRegisterForm && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 20, borderRadius: 22, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--card-shadow)' }}>
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                  Register the vehicle you'll drive for SaathiRide. An admin will need to verify it
-                  (and its documents) before you can use it to offer a ride.
-                </p>
+          {showRegisterForm && (
+            <Card className="flex flex-col gap-4 p-5">
+              <p className="text-sm text-ink-muted">
+                Register the vehicle you'll drive for Ryderex. An admin will need to verify it
+                (and its documents) before you can use it to offer a ride.
+              </p>
 
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Registration number</span>
-                  <input
-                    type="text"
+              <Field label="Registration number">
+                {({ id }) => (
+                  <TextInput
+                    id={id}
                     value={registrationNumber}
                     onChange={(event) => setRegistrationNumber(event.target.value)}
                     placeholder="KA 01 AB 1234"
-                    style={inputStyle}
                   />
-                </label>
+                )}
+              </Field>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Vehicle type</span>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {VEHICLE_TYPES.map((type) => {
-                      const on = type === vehicleType;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setVehicleType(type)}
-                          style={{
-                            height: 40,
-                            padding: '0 14px',
-                            borderRadius: 999,
-                            cursor: 'pointer',
-                            font: '600 12px var(--font-ui)',
-                            background: on ? 'rgba(11,129,147,.12)' : 'var(--surface-2)',
-                            color: on ? 'var(--text)' : 'var(--text-2)',
-                            border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                          }}
-                        >
-                          {type}
-                        </button>
-                      );
-                    })}
-                  </div>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-ink">Vehicle type</span>
+                <div className="flex flex-wrap gap-2">
+                  {VEHICLE_TYPES.map((type) => {
+                    const on = type === vehicleType;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setVehicleType(type)}
+                        className={cn(
+                          'h-10 rounded-full border px-3.5 text-xs font-semibold transition-colors',
+                          on
+                            ? 'border-accent-700 bg-accent-50 text-ink'
+                            : 'border-border-strong bg-surface text-ink-muted',
+                        )}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
 
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Seat capacity</span>
-                  <input
+              <Field
+                label="Seat capacity"
+                error={!seatCapacityValid ? 'Enter a whole number of 1 or more.' : undefined}
+              >
+                {({ id }) => (
+                  <TextInput
+                    id={id}
                     type="number"
                     min={1}
                     value={seatCapacityInput}
                     onChange={(event) => setSeatCapacityInput(event.target.value)}
-                    style={{
-                      ...inputStyle,
-                      border: `1px solid ${seatCapacityValid ? 'var(--border)' : 'var(--warning-border)'}`,
-                    }}
+                    invalid={!seatCapacityValid}
                   />
-                  {!seatCapacityValid && (
-                    <span style={{ fontSize: 11, color: 'var(--warning)' }}>Enter a whole number of 1 or more.</span>
-                  )}
-                </label>
+                )}
+              </Field>
 
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Model (optional)</span>
-                  <input
-                    type="text"
+              <Field label="Model (optional)">
+                {({ id }) => (
+                  <TextInput
+                    id={id}
                     value={model}
                     onChange={(event) => setModel(event.target.value)}
                     placeholder="e.g. Swift Dzire"
-                    style={inputStyle}
                   />
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-2)' }}>
-                  <input type="checkbox" checked={isAc} onChange={(event) => setIsAc(event.target.checked)} />
-                  Air-conditioned
-                </label>
-
-                {createError && (
-                  <p role="alert" style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>
-                    {createError}
-                  </p>
                 )}
+              </Field>
 
-                <button
-                  type="button"
-                  disabled={!canCreate}
-                  onClick={() => void handleCreate()}
-                  style={{
-                    height: 50,
-                    borderRadius: 'var(--radius-control)',
-                    border: 0,
-                    background: canCreate ? 'var(--accent)' : 'var(--surface-3)',
-                    color: canCreate ? 'var(--accent-on)' : 'var(--text-muted)',
-                    font: '700 14px var(--font-ui)',
-                    cursor: canCreate ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  {creating ? 'Registering…' : 'Register vehicle'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input type="checkbox" checked={isAc} onChange={(event) => setIsAc(event.target.checked)} />
+                Air-conditioned
+              </label>
+
+              {createError && <p role="alert" className="text-xs text-red-600">{createError}</p>}
+
+              <Button disabled={!canCreate} loading={creating} onClick={() => void handleCreate()}>
+                Register vehicle
+              </Button>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }
